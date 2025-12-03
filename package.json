@@ -1,0 +1,28 @@
+{
+  "name": "ai-video-collab-platform",
+  "version": "1.0.0",
+  "private": true,
+  "description": "AI-Powered Realtime Video Collaboration Platform",
+  "scripts": {
+    "dev": "concurrently \"cd frontend && npm run dev\" \"cd backend && npm run dev\"",
+    "install:all": "cd frontend && npm install && cd ../backend && npm install",
+    "setup:db": "cd backend && npm run prisma:generate && npm run prisma:migrate",
+    "build:frontend": "cd frontend && npm run build",
+    "start:frontend": "cd frontend && npm run start",
+    "start:backend": "cd backend && npm run start",
+    "prisma:studio": "cd backend && npm run prisma:studio"
+  },
+  "keywords": [
+    "video-collaboration",
+    "graphql",
+    "nextjs",
+    "realtime",
+    "ai",
+    "livekit"
+  ],
+  "author": "Your Name",
+  "license": "MIT",
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
