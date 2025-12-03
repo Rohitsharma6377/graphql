@@ -12,7 +12,7 @@ import { useSession } from 'next-auth/react'
 import { useQuery, useSubscription } from '@apollo/client'
 import { GET_ROOM, USER_JOINED_SUBSCRIPTION, USER_LEFT_SUBSCRIPTION } from '@/graphql/queries'
 
-export function VideoRoom({ roomId, onLeave, showChat, showWhiteboard, showDocument, onToggleChat, onToggleWhiteboard, onToggleDocument }) {
+export function RealVideoRoom({ roomId, onLeave, showChat, showWhiteboard, showDocument, onToggleChat, onToggleWhiteboard, onToggleDocument }) {
   const { data: session } = useSession()
   const [isMuted, setIsMuted] = useState(false)
   const [isVideoOff, setIsVideoOff] = useState(false)
