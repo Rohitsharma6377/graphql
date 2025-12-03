@@ -575,5 +575,29 @@ export const resolvers = {
         include: { user: true }
       })
     }
+  },
+
+  Document: {
+    author: async (parent) => {
+      if (!parent.authorId) {
+        // If no author, get room creator
+        const room = await prisma.room.findUnique({
+          where: { id: parent.roomId },
+          include: { createdBy: true }
+        })
+        return room?.createdBy || null
+      }
+      return await prisma.user.findUnique({
+        where: { id: parent.authorId }
+      })
+    },
+    edits: async (parent) => {
+      return await prisma.documentEdit.findMany({
+        where: { documentId: parent.id },
+        include: { user: true },
+        orderBy: { timestamp: 'desc' },
+        take: 10
+      })
+    }
   }
 }
