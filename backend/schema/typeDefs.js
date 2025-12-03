@@ -173,6 +173,13 @@ export const typeDefs = `#graphql
     updateDocument(roomId: ID!, content: String!): Document!
     deleteDocument(id: ID!): Boolean!
     
+    # Recordings
+    createRecording(roomId: ID!, url: String!, duration: Int!, size: Int!): Recording!
+    deleteRecording(id: ID!): Boolean!
+    
+    # Transcript
+    generateTranscript(roomId: ID!, content: String!): Transcript!
+    
     # Whiteboard
     addWhiteboardStroke(roomId: ID!, points: String!, color: String!, width: Int!, tool: String): WhiteboardStroke!
     clearWhiteboard(roomId: ID!): Boolean!

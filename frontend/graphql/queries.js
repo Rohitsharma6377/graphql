@@ -88,6 +88,7 @@ export const GET_MESSAGES = gql`
       id
       content
       type
+      metadata
       sender {
         id
         name
@@ -98,6 +99,38 @@ export const GET_MESSAGES = gql`
       reactions {
         emoji
         userId
+        user {
+          id
+          name
+        }
+      }
+    }
+  }
+`
+
+export const GET_DOCUMENTS = gql`
+  query GetDocuments {
+    documents {
+      id
+      name
+      content
+      createdAt
+      updatedAt
+      author {
+        id
+        name
+        avatar
+      }
+      room {
+        id
+        name
+      }
+      edits {
+        user {
+          id
+          name
+          avatar
+        }
       }
     }
   }
@@ -110,6 +143,29 @@ export const GET_DOCUMENT = gql`
       id
       roomId
       content
+      updatedAt
+    }
+  }
+`
+
+export const GET_RECORDINGS = gql`
+  query GetRecordings($roomId: ID!) {
+    recordings(roomId: $roomId) {
+      id
+      url
+      duration
+      size
+      createdAt
+    }
+  }
+`
+
+export const GET_TRANSCRIPT = gql`
+  query GetTranscript($roomId: ID!) {
+    transcript(roomId: $roomId) {
+      id
+      content
+      createdAt
       updatedAt
     }
   }
@@ -147,11 +203,12 @@ export const LEAVE_ROOM = gql`
 `
 
 export const SEND_MESSAGE = gql`
-  mutation SendMessage($roomId: ID!, $content: String!, $type: String) {
-    sendMessage(roomId: $roomId, content: $content, type: $type) {
+  mutation SendMessage($input: SendMessageInput!) {
+    sendMessage(input: $input) {
       id
       content
       type
+      metadata
       sender {
         id
         name
@@ -162,12 +219,37 @@ export const SEND_MESSAGE = gql`
   }
 `
 
+export const CREATE_DOCUMENT = gql`
+  mutation CreateDocument($input: CreateDocumentInput!) {
+    createDocument(input: $input) {
+      id
+      name
+      content
+      createdAt
+      updatedAt
+      author {
+        id
+        name
+        avatar
+      }
+    }
+  }
+`
+
 export const UPDATE_DOCUMENT = gql`
   mutation UpdateDocument($roomId: ID!, $content: String!) {
     updateDocument(roomId: $roomId, content: $content) {
       id
       content
       updatedAt
+    }
+  }
+`
+
+export const DELETE_DOCUMENT = gql`
+  mutation DeleteDocument($id: ID!) {
+    deleteDocument(id: $id) {
+      id
     }
   }
 `
@@ -189,6 +271,34 @@ export const UPDATE_USER_STATUS = gql`
     updateUserStatus(status: $status) {
       id
       status
+    }
+  }
+`
+
+export const CREATE_RECORDING = gql`
+  mutation CreateRecording($roomId: ID!, $url: String!, $duration: Int!, $size: Int!) {
+    createRecording(roomId: $roomId, url: $url, duration: $duration, size: $size) {
+      id
+      url
+      duration
+      size
+      createdAt
+    }
+  }
+`
+
+export const DELETE_RECORDING = gql`
+  mutation DeleteRecording($id: ID!) {
+    deleteRecording(id: $id)
+  }
+`
+
+export const GENERATE_TRANSCRIPT = gql`
+  mutation GenerateTranscript($roomId: ID!, $content: String!) {
+    generateTranscript(roomId: $roomId, content: $content) {
+      id
+      content
+      createdAt
     }
   }
 `

@@ -4,7 +4,7 @@ import { motion } from 'framer-motion'
 import { FileText, Clock, Download, Search, Upload } from 'lucide-react'
 import { useState, useRef } from 'react'
 import { useSession } from 'next-auth/react'
-import { useQuery, useMutation, gql } from '@apollo/client'
+import { useQuery, useMutation } from '@apollo/client'
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute'
 import { Navbar } from '@/components/layout/Navbar'
 import { Sidebar } from '@/components/layout/Sidebar'
@@ -16,34 +16,8 @@ import { Modal } from '@/components/ui/Modal'
 import { FadeIn } from '@/components/animations/AnimatedCard'
 import { formatDate } from '@/lib/utils'
 import { uploadToCloudinary } from '@/lib/cloudinary'
+import { GET_DOCUMENTS, CREATE_DOCUMENT } from '@/graphql/queries'
 import toast from 'react-hot-toast'
-
-const GET_DOCUMENTS = gql`
-  query GetDocuments {
-    documents {
-      id
-      name
-      content
-      createdAt
-      updatedAt
-      author {
-        id
-        name
-        avatar
-      }
-    }
-  }
-`
-
-const CREATE_DOCUMENT = gql`
-  mutation CreateDocument($input: CreateDocumentInput!) {
-    createDocument(input: $input) {
-      id
-      name
-      content
-    }
-  }
-`
 
 export default function DocumentsPage() {
   const { data: session } = useSession()

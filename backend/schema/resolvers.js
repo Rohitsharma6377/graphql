@@ -461,6 +461,66 @@ export const resolvers = {
       return true
     },
 
+    // Recording mutations
+    createRecording: async (_, { roomId, url, duration, size }, { user }) => {
+      if (!user) throw new Error('Not authenticated')
+
+      const recording = await prisma.recording.create({
+        data: {
+          roomId,
+          url,
+          duration,
+          size
+        },
+        include: {
+          room: true
+        }
+      })
+
+      return recording
+    },
+
+    deleteRecording: async (_, { id }, { user }) => {
+      if (!user) throw new Error('Not authenticated')
+
+      const recording = await prisma.recording.findUnique({
+        where: { id },
+        include: { room: true }
+      })
+
+      if (!recording) throw new Error('Recording not found')
+
+      // Check if user is the room creator
+      if (recording.room.createdById !== user.id) {
+        throw new Error('Not authorized to delete this recording')
+      }
+
+      await prisma.recording.delete({ where: { id } })
+
+      return true
+    },
+
+    // Transcript mutations
+    generateTranscript: async (_, { roomId, content }, { user }) => {
+      if (!user) throw new Error('Not authenticated')
+
+      const transcript = await prisma.transcript.upsert({
+        where: { roomId },
+        create: {
+          roomId,
+          content
+        },
+        update: {
+          content
+        },
+        include: {
+          room: true
+        }
+      })
+
+      return transcript
+    },
+
     addWhiteboardStroke: async (_, { roomId, points, color, width, tool = 'pen' }, { user }) => {
       if (!user) throw new Error('Not authenticated')
 
