@@ -17,18 +17,18 @@
 
 @layer components {
   .glass-card {
-    @apply bg-white/40 backdrop-blur-md rounded-2xl shadow-lg border border-white/50;
+    @apply bg-white/40 backdrop-blur-xl rounded-2xl shadow-2xl border border-white/50;
   }
   
   .btn-primary {
     @apply px-6 py-3 rounded-full bg-gradient-heartshare hover:bg-gradient-heartshare-hover 
            text-gray-800 font-semibold transition-all duration-300 
-           shadow-md hover:shadow-xl transform hover:scale-105;
+           shadow-lg hover:shadow-2xl transform hover:scale-105;
   }
   
   .btn-secondary {
-    @apply px-4 py-2 rounded-full bg-white/60 hover:bg-white/80 
+    @apply px-4 py-2 rounded-full bg-white/70 hover:bg-white/90 
            text-gray-700 font-medium transition-all duration-200 
-           shadow-sm hover:shadow-md;
+           shadow-md hover:shadow-lg transform hover:scale-105;
   }
 }
