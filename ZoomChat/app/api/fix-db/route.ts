@@ -7,6 +7,13 @@ export async function GET() {
     await dbConnect()
 
     const db = mongoose.connection.db
+    if (!db) {
+      return NextResponse.json(
+        { success: false, error: 'Database connection not established' },
+        { status: 500 }
+      )
+    }
+
     const usersCollection = db.collection('users')
 
     // Get current indexes
