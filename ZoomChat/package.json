@@ -1,0 +1,34 @@
+{
+  "name": "heartshare",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "setup": "powershell -ExecutionPolicy Bypass -File ./setup.ps1",
+    "clean": "rd /s /q .next node_modules 2>nul & echo Cleaned successfully",
+    "reinstall": "npm run clean && npm install"
+  },
+  "dependencies": {
+    "next": "^14.2.0",
+    "react": "^18.3.0",
+    "react-dom": "^18.3.0",
+    "socket.io": "^4.7.2",
+    "socket.io-client": "^4.7.2",
+    "framer-motion": "^11.0.0",
+    "zustand": "^4.5.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "@types/react": "^18",
+    "@types/react-dom": "^18",
+    "typescript": "^5",
+    "tailwindcss": "^3.4.0",
+    "postcss": "^8",
+    "autoprefixer": "^10.0.1",
+    "eslint": "^8",
+    "eslint-config-next": "14.2.0"
+  }
+}
