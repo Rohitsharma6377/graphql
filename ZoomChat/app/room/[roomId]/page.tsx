@@ -71,24 +71,31 @@ export default function RoomPage() {
   const initializeCall = async () => {
     try {
       setError(null)
+      console.log('🎥 Initializing call...')
+      
       const stream = await startLocalMedia()
+      console.log('✅ Got local media stream')
+      
       await joinCall(roomId, username, stream)
+      console.log('✅ Joined call successfully')
+      
       setRoomReady(true)
     } catch (err: any) {
-      console.error('Error initializing call:', err)
+      console.error('❌ Error initializing call:', err)
       
       // Try audio-only if camera fails
       try {
-        console.log('Camera failed, trying audio-only...')
+        console.log('🎤 Camera failed, trying audio-only...')
         const audioStream = await navigator.mediaDevices.getUserMedia({
           video: false,
           audio: true,
         })
         await joinCall(roomId, username, audioStream)
         setRoomReady(true)
+        console.log('✅ Joined with audio only')
         return
       } catch (audioErr: any) {
-        console.error('Audio-only also failed:', audioErr)
+        console.error('❌ Audio-only also failed:', audioErr)
       }
       
       let errorMessage = 'Failed to access camera/microphone. '
@@ -252,14 +259,16 @@ export default function RoomPage() {
                 onClick={() => {
                   const url = `${window.location.origin}/room/${roomId}`
                   navigator.clipboard.writeText(url)
-                  // You could add a toast notification here
-                  alert('Room URL copied to clipboard! 📋')
+                  alert('Room URL copied! 📋\\n\\nOpen this link in a DIFFERENT browser or incognito window to test with 2 users.')
                 }}
                 className="ml-2 px-2 py-1 bg-purple-100 hover:bg-purple-200 text-purple-800 rounded text-xs font-semibold transition-all"
                 title="Copy room URL"
               >
                 📋 Copy Link
               </motion.button>
+            </p>
+            <p className="text-xs text-orange-600 mt-1">
+              💡 Tip: Open the copied link in a different browser or incognito window to test
             </p>
           </div>
           <div className="flex items-center gap-2">

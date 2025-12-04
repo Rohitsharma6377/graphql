@@ -119,7 +119,7 @@ const ioHandler = (req: NextApiRequest, res: NextApiResponseServerIO) => {
 
       // WebRTC signaling: Offer
       socket.on('offer', ({ roomId, offer }) => {
-        console.log('Relaying offer to room:', roomId)
+        console.log(`📤 Relaying offer from ${socket.id} to room:`, roomId)
         socket.to(roomId).emit('offer', {
           from: socket.id,
           offer,
@@ -128,7 +128,7 @@ const ioHandler = (req: NextApiRequest, res: NextApiResponseServerIO) => {
 
       // WebRTC signaling: Answer
       socket.on('answer', ({ roomId, answer }) => {
-        console.log('Relaying answer to room:', roomId)
+        console.log(`📤 Relaying answer from ${socket.id} to room:`, roomId)
         socket.to(roomId).emit('answer', {
           from: socket.id,
           answer,

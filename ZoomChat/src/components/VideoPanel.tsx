@@ -24,8 +24,10 @@ export default function VideoPanel({
 }: VideoPanelProps) {
   const localVideoRef = useRef<HTMLVideoElement>(null)
   const remoteVideoRef = useRef<HTMLVideoElement>(null)
-  const screenShareVideoRef = useRef<HTMLVideoElement>(null)
-  const [showScreenSharePopup, setShowScreenSharePopup] = useState(false)
+  const localScreenRef = useRef<HTMLVideoElement>(null)
+  const remoteScreenRef = useRef<HTMLVideoElement>(null)
+  const [expandedBox, setExpandedBox] = useState<string | null>(null)
+  const [remoteIsScreenSharing, setRemoteIsScreenSharing] = useState(false)
 
   // Set up local video
   useEffect(() => {
@@ -34,214 +36,241 @@ export default function VideoPanel({
     }
   }, [localStream])
 
-  // Set up remote video
+  // Set up remote video and detect screen share
   useEffect(() => {
     if (remoteVideoRef.current && remoteStream) {
       remoteVideoRef.current.srcObject = remoteStream
       
-      // Check if remote stream has screen share track
+      // Check if remote stream is screen share
       const videoTracks = remoteStream.getVideoTracks()
       if (videoTracks.length > 0) {
         const trackLabel = videoTracks[0].label.toLowerCase()
-        const isScreenShare = trackLabel.includes('screen') || trackLabel.includes('window')
-        setShowScreenSharePopup(isScreenShare)
+        const isScreen = trackLabel.includes('screen') || trackLabel.includes('window') || trackLabel.includes('display')
+        setRemoteIsScreenSharing(isScreen)
+        
+        // If it's screen share, route to screen ref instead
+        if (isScreen && remoteScreenRef.current) {
+          remoteScreenRef.current.srcObject = remoteStream
+        }
       }
     }
   }, [remoteStream])
 
-  // Set up screen share video
+  // Set up local screen share
   useEffect(() => {
-    if (screenShareVideoRef.current && screenStream) {
-      screenShareVideoRef.current.srcObject = screenStream
-      setShowScreenSharePopup(true)
-    } else {
-      setShowScreenSharePopup(false)
+    if (localScreenRef.current && screenStream) {
+      localScreenRef.current.srcObject = screenStream
     }
   }, [screenStream])
 
-  return (
-    <>
-      {/* Main Grid - Always show both video cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-2 md:gap-4 h-full">
-        {/* Local Video Card */}
-        <motion.div
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="relative rounded-2xl overflow-hidden shadow-2xl border-2 border-white/20 bg-gradient-to-br from-purple-900 via-indigo-800 to-blue-900"
-        >
-          {localStream && isCameraOn ? (
-            <video
-              ref={localVideoRef}
-              autoPlay
-              playsInline
-              muted
-              className="w-full h-full object-cover"
-            />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center">
-              <motion.div
-                initial={{ scale: 0.8 }}
-                animate={{ scale: 1 }}
-                className="text-center"
-              >
-                <div className="w-20 h-20 sm:w-24 sm:h-24 md:w-32 md:h-32 mx-auto mb-4 rounded-full bg-gradient-to-r from-pink-400 via-purple-400 to-pink-300 flex items-center justify-center shadow-2xl">
-                  <span className="text-3xl sm:text-4xl md:text-6xl font-bold text-white">
-                    {username.charAt(0).toUpperCase()}
-                  </span>
-                </div>
-                <p className="text-white text-lg sm:text-xl md:text-2xl font-semibold">
-                  {username}
-                </p>
-                <p className="text-white/60 text-xs sm:text-sm mt-2">
-                  Camera is {isCameraOn ? 'starting...' : 'off'}
-                </p>
-              </motion.div>
+  const VideoBox = ({
+    videoRef,
+    title,
+    subtitle,
+    isLive,
+    showVideo,
+    fallbackInitial,
+    gradient,
+    boxId,
+  }: {
+    videoRef: React.RefObject<HTMLVideoElement>
+    title: string
+    subtitle?: string
+    isLive: boolean
+    showVideo: boolean
+    fallbackInitial: string
+    gradient: string
+    boxId: string
+  }) => (
+    <motion.div
+      layout
+      initial={{ opacity: 0, scale: 0.9 }}
+      animate={{ 
+        opacity: 1, 
+        scale: expandedBox === boxId ? 1 : 1,
+      }}
+      className={`relative rounded-xl overflow-hidden shadow-xl border-2 border-white/20 ${
+        expandedBox === boxId ? 'col-span-2 row-span-2' : ''
+      } ${gradient}`}
+    >
+      {/* Video or Placeholder */}
+      {showVideo ? (
+        <video
+          ref={videoRef}
+          autoPlay
+          playsInline
+          muted={boxId.includes('local')}
+          className="w-full h-full object-cover"
+        />
+      ) : (
+        <div className="w-full h-full flex items-center justify-center">
+          <motion.div
+            initial={{ scale: 0.8 }}
+            animate={{ scale: 1 }}
+            className="text-center"
+          >
+            <div className="w-16 h-16 sm:w-20 sm:h-20 mx-auto mb-3 rounded-full bg-gradient-to-r from-pink-400 to-purple-400 flex items-center justify-center shadow-2xl">
+              <span className="text-2xl sm:text-3xl font-bold text-white">
+                {fallbackInitial}
+              </span>
             </div>
-          )}
-          
-          {/* Username overlay */}
-          <div className="absolute top-3 left-3 bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-full text-white text-sm font-medium shadow-lg">
-            <span className="mr-1">👤</span> {username} (You)
-          </div>
+            <p className="text-white text-sm sm:text-base font-semibold">{title}</p>
+            {subtitle && <p className="text-white/60 text-xs mt-1">{subtitle}</p>}
+          </motion.div>
+        </div>
+      )}
 
-          {/* Camera status indicator */}
-          <div className="absolute top-3 right-3">
-            {isCameraOn ? (
-              <div className="bg-green-500/90 backdrop-blur-sm px-2 py-1 rounded-full text-white text-xs font-medium flex items-center gap-1">
-                <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
-                Live
-              </div>
-            ) : (
-              <div className="bg-red-500/90 backdrop-blur-sm px-2 py-1 rounded-full text-white text-xs font-medium">
-                Camera Off
-              </div>
-            )}
-          </div>
-        </motion.div>
-
-        {/* Remote Video Card */}
-        <motion.div
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="relative rounded-2xl overflow-hidden shadow-2xl border-2 border-white/20 bg-gradient-to-br from-indigo-900 via-purple-800 to-pink-900"
-        >
-          {remoteStream ? (
-            <video
-              ref={remoteVideoRef}
-              autoPlay
-              playsInline
-              className="w-full h-full object-cover"
-            />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center">
-              <motion.div
-                initial={{ scale: 0.8 }}
-                animate={{ scale: 1 }}
-                className="text-center"
-              >
-                <motion.div
-                  className="w-20 h-20 sm:w-24 sm:h-24 md:w-32 md:h-32 mx-auto mb-4 rounded-full bg-gradient-to-r from-blue-400 via-indigo-400 to-purple-400 flex items-center justify-center shadow-2xl"
-                  animate={{
-                    scale: [1, 1.05, 1],
-                    opacity: [0.8, 1, 0.8],
-                  }}
-                  transition={{
-                    duration: 2,
-                    repeat: Infinity,
-                  }}
-                >
-                  <svg
-                    className="w-12 h-12 sm:w-16 sm:h-16 md:w-20 md:h-20 text-white"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
-                    />
-                  </svg>
-                </motion.div>
-                <p className="text-white text-lg sm:text-xl md:text-2xl font-semibold">
-                  {remoteUsername}
-                </p>
-                <p className="text-white/60 text-xs sm:text-sm mt-2">
-                  Waiting to connect...
-                </p>
-              </motion.div>
-            </div>
-          )}
-          
-          {/* Remote username overlay */}
-          {remoteStream && (
-            <div className="absolute top-3 left-3 bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-full text-white text-sm font-medium shadow-lg">
-              <span className="mr-1">👤</span> {remoteUsername}
-            </div>
-          )}
-
-          {/* Connection status */}
-          <div className="absolute top-3 right-3">
-            {remoteStream ? (
-              <div className="bg-green-500/90 backdrop-blur-sm px-2 py-1 rounded-full text-white text-xs font-medium flex items-center gap-1">
-                <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
-                Connected
-              </div>
-            ) : (
-              <div className="bg-yellow-500/90 backdrop-blur-sm px-2 py-1 rounded-full text-white text-xs font-medium">
-                Waiting...
-              </div>
-            )}
-          </div>
-        </motion.div>
+      {/* Title Badge */}
+      <div className="absolute top-2 left-2 bg-black/60 backdrop-blur-md px-2 py-1 rounded-full text-white text-xs font-medium shadow-lg flex items-center gap-1">
+        <span>{boxId.includes('screen') ? '🖥️' : '👤'}</span>
+        {title}
       </div>
 
-      {/* Screen Share Popup Modal */}
+      {/* Status Badge */}
+      <div className="absolute top-2 right-2">
+        {isLive ? (
+          <div className="bg-green-500/90 backdrop-blur-sm px-2 py-1 rounded-full text-white text-xs font-medium flex items-center gap-1">
+            <motion.div
+              className="w-1.5 h-1.5 bg-white rounded-full"
+              animate={{ opacity: [1, 0.5, 1] }}
+              transition={{ duration: 1.5, repeat: Infinity }}
+            />
+            Live
+          </div>
+        ) : (
+          <div className="bg-gray-500/90 backdrop-blur-sm px-2 py-1 rounded-full text-white text-xs font-medium">
+            Off
+          </div>
+        )}
+      </div>
+
+      {/* Expand/Collapse Button */}
+      <motion.button
+        whileHover={{ scale: 1.1 }}
+        whileTap={{ scale: 0.9 }}
+        onClick={() => setExpandedBox(expandedBox === boxId ? null : boxId)}
+        className="absolute bottom-2 right-2 w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 backdrop-blur-md flex items-center justify-center text-white transition-all"
+        title={expandedBox === boxId ? 'Minimize' : 'Expand'}
+      >
+        {expandedBox === boxId ? (
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 9V4.5M9 9H4.5M9 9L3.75 3.75M9 15v4.5M9 15H4.5M9 15l-5.25 5.25M15 9h4.5M15 9V4.5M15 9l5.25-5.25M15 15h4.5M15 15v4.5m0-4.5l5.25 5.25" />
+          </svg>
+        ) : (
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+          </svg>
+        )}
+      </motion.button>
+    </motion.div>
+  )
+
+  return (
+    <div className="w-full h-full">
+      {/* 4 Box Grid Layout */}
+      <div className={`grid gap-2 h-full ${
+        expandedBox 
+          ? 'grid-cols-2 grid-rows-2' 
+          : 'grid-cols-2 grid-rows-2'
+      }`}>
+        {/* Box 1: Your Camera */}
+        <VideoBox
+          videoRef={localVideoRef}
+          title={`${username} (You)`}
+          subtitle={isCameraOn ? 'Camera On' : 'Camera Off'}
+          isLive={isCameraOn && !!localStream}
+          showVideo={isCameraOn && !!localStream}
+          fallbackInitial={username.charAt(0).toUpperCase()}
+          gradient="bg-gradient-to-br from-purple-900 via-indigo-800 to-blue-900"
+          boxId="local-camera"
+        />
+
+        {/* Box 2: Your Screen Share */}
+        <VideoBox
+          videoRef={localScreenRef}
+          title="Your Screen"
+          subtitle={isScreenSharing ? 'Sharing...' : 'Not sharing'}
+          isLive={isScreenSharing && !!screenStream}
+          showVideo={isScreenSharing && !!screenStream}
+          fallbackInitial="🖥️"
+          gradient="bg-gradient-to-br from-indigo-900 via-purple-800 to-pink-900"
+          boxId="local-screen"
+        />
+
+        {/* Box 3: Remote User Camera */}
+        <VideoBox
+          videoRef={remoteVideoRef}
+          title={remoteUsername}
+          subtitle={remoteStream && !remoteIsScreenSharing ? 'Connected' : 'Waiting...'}
+          isLive={!!remoteStream && !remoteIsScreenSharing}
+          showVideo={!!remoteStream && !remoteIsScreenSharing}
+          fallbackInitial={remoteUsername.charAt(0).toUpperCase()}
+          gradient="bg-gradient-to-br from-pink-900 via-purple-800 to-indigo-900"
+          boxId="remote-camera"
+        />
+
+        {/* Box 4: Remote User Screen Share */}
+        <VideoBox
+          videoRef={remoteScreenRef}
+          title={`${remoteUsername}'s Screen`}
+          subtitle={remoteIsScreenSharing ? 'Sharing...' : 'Not sharing'}
+          isLive={remoteIsScreenSharing}
+          showVideo={remoteIsScreenSharing}
+          fallbackInitial="🖥️"
+          gradient="bg-gradient-to-br from-blue-900 via-indigo-800 to-purple-900"
+          boxId="remote-screen"
+        />
+      </div>
+
+      {/* Expanded View Overlay */}
       <AnimatePresence>
-        {(isScreenSharing || showScreenSharePopup) && (
+        {expandedBox && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
-            onClick={() => !isScreenSharing && setShowScreenSharePopup(false)}
+            className="fixed inset-0 z-50 bg-black/90 backdrop-blur-sm p-4"
+            onClick={() => setExpandedBox(null)}
           >
             <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              className="relative w-full max-w-6xl h-[80vh] rounded-2xl overflow-hidden shadow-2xl border-2 border-white/30 bg-gray-900"
+              initial={{ scale: 0.9 }}
+              animate={{ scale: 1 }}
+              exit={{ scale: 0.9 }}
+              className="w-full h-full rounded-2xl overflow-hidden"
               onClick={(e) => e.stopPropagation()}
             >
-              {/* Close button */}
-              <motion.button
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.9 }}
-                onClick={() => !isScreenSharing && setShowScreenSharePopup(false)}
-                className="absolute top-4 right-4 z-10 w-10 h-10 rounded-full bg-red-500 hover:bg-red-600 text-white flex items-center justify-center shadow-lg transition-all"
+              {expandedBox === 'local-camera' && (
+                <video ref={localVideoRef} autoPlay playsInline muted className="w-full h-full object-contain bg-black" />
+              )}
+              {expandedBox === 'local-screen' && (
+                <video ref={localScreenRef} autoPlay playsInline muted className="w-full h-full object-contain bg-black" />
+              )}
+              {expandedBox === 'remote-camera' && (
+                <video ref={remoteVideoRef} autoPlay playsInline className="w-full h-full object-contain bg-black" />
+              )}
+              {expandedBox === 'remote-screen' && (
+                <video ref={remoteScreenRef} autoPlay playsInline className="w-full h-full object-contain bg-black" />
+              )}
+              
+              {/* Close Button */}
+              <button
+                onClick={() => setExpandedBox(null)}
+                className="absolute top-4 right-4 w-12 h-12 rounded-full bg-red-500 hover:bg-red-600 text-white flex items-center justify-center shadow-lg transition-all z-10"
               >
-                <span className="text-xl">×</span>
-              </motion.button>
+                <span className="text-2xl">×</span>
+              </button>
 
-              {/* Screen share title */}
-              <div className="absolute top-4 left-4 z-10 bg-black/60 backdrop-blur-md px-4 py-2 rounded-full text-white font-medium shadow-lg">
-                <span className="mr-2">🖥️</span>
-                {isScreenSharing ? 'Your Screen Share' : `${remoteUsername}'s Screen`}
+              {/* Title */}
+              <div className="absolute top-4 left-4 bg-black/60 backdrop-blur-md px-4 py-2 rounded-full text-white font-medium shadow-lg z-10">
+                {expandedBox === 'local-camera' && `${username} - Camera`}
+                {expandedBox === 'local-screen' && 'Your Screen Share'}
+                {expandedBox === 'remote-camera' && `${remoteUsername} - Camera`}
+                {expandedBox === 'remote-screen' && `${remoteUsername}'s Screen`}
               </div>
-
-              {/* Screen share video */}
-              <video
-                ref={screenShareVideoRef}
-                autoPlay
-                playsInline
-                muted={isScreenSharing}
-                className="w-full h-full object-contain bg-black"
-              />
             </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
-    </>
+    </div>
   )
 }

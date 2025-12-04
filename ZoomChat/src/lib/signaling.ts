@@ -37,24 +37,34 @@ class SignalingClient {
   private roomId: string | null = null
 
   connect(): Socket {
-    if (!this.socket) {
-      // Connect to Socket.IO server on Next.js API route
-      this.socket = io({
-        path: '/api/socket',
-      })
-
-      this.socket.on('connect', () => {
-        console.log('Connected to signaling server:', this.socket?.id)
-      })
-
-      this.socket.on('disconnect', () => {
-        console.log('Disconnected from signaling server')
-      })
-
-      this.socket.on('error', (error) => {
-        console.error('Socket error:', error)
-      })
+    // Always disconnect existing connection first
+    if (this.socket) {
+      console.log('🔄 Disconnecting existing socket...')
+      this.socket.disconnect()
+      this.socket = null
     }
+
+    // Connect to Socket.IO server on Next.js API route
+    this.socket = io({
+      path: '/api/socket',
+      forceNew: true,  // Always create new connection
+      reconnection: true,
+      reconnectionDelay: 1000,
+      reconnectionAttempts: 5,
+      transports: ['websocket', 'polling'],  // Try websocket first
+    })
+
+    this.socket.on('connect', () => {
+      console.log('✅ Connected to signaling server:', this.socket?.id)
+    })
+
+    this.socket.on('disconnect', () => {
+      console.log('Disconnected from signaling server')
+    })
+
+    this.socket.on('error', (error) => {
+      console.error('Socket error:', error)
+    })
 
     return this.socket
   }

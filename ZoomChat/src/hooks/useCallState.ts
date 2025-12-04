@@ -75,22 +75,39 @@ export function useCallState(roomId: string, username: string): UseCallStateRetu
 
     // User joined
     signalingClient.on('user-joined', async ({ userId, username: joinedUsername }) => {
-      console.log('User joined:', joinedUsername, 'My ID:', signalingClient.getSocket()?.id)
+      const myId = signalingClient.getSocket()?.id || ''
+      
+      // CRITICAL: Ignore if this is us (same socket ID)
+      if (userId === myId) {
+        console.log('⚠️ Ignoring self-join event')
+        return
+      }
+      
+      console.log('👥 User joined:', joinedUsername, 'ID:', userId)
+      console.log('📍 My ID:', myId)
       setRemotePeerId(userId)
 
       // If we're already in the room, determine who initiates based on socket IDs
-      // to prevent both peers from creating offers simultaneously
       if (peerConnectionRef.current && localStreamRef.current) {
-        const myId = signalingClient.getSocket()?.id || ''
+        
         // Only initiate if our ID is "greater" to ensure only one peer initiates
         if (myId > userId) {
-          console.log('I will initiate the offer')
+          console.log('🎯 I will initiate the offer (my ID is higher)')
           isInitiatorRef.current = true
-          await createOffer(peerConnectionRef.current, signalingClient.getSocket()!, roomId)
+          
+          // Small delay to ensure both peers are ready
+          setTimeout(async () => {
+            if (peerConnectionRef.current && remotePeerId) {
+              console.log('📤 Creating and sending offer...')
+              await createOffer(peerConnectionRef.current, signalingClient.getSocket()!, roomId)
+            }
+          }, 500)
         } else {
-          console.log('Waiting for other peer to initiate')
+          console.log('⏳ Waiting for other peer to initiate (their ID is higher)')
           isInitiatorRef.current = false
         }
+      } else {
+        console.warn('⚠️ Peer connection or local stream not ready')
       }
     })
 
@@ -105,28 +122,56 @@ export function useCallState(roomId: string, username: string): UseCallStateRetu
 
     // Received offer
     signalingClient.on('offer', async ({ from, offer }) => {
-      console.log('Received offer from:', from, 'Current state:', peerConnectionRef.current?.signalingState)
+      console.log('📩 Received offer from:', from, 'Current state:', peerConnectionRef.current?.signalingState)
+      
+      // Ignore offers from ourselves
+      if (from === signalingClient.getSocket()?.id) {
+        console.warn('⚠️ Ignoring offer from self')
+        return
+      }
+      
       setRemotePeerId(from)
 
       if (peerConnectionRef.current) {
         isInitiatorRef.current = false
+        console.log('📝 Creating answer...')
         await createAnswer(peerConnectionRef.current, signalingClient.getSocket()!, roomId, offer)
+      } else {
+        console.error('❌ No peer connection to create answer!')
       }
     })
 
     // Received answer
     signalingClient.on('answer', async ({ from, answer }) => {
-      console.log('Received answer from:', from)
+      console.log('📩 Received answer from:', from)
+      
+      // Ignore answers from ourselves
+      if (from === signalingClient.getSocket()?.id) {
+        console.warn('⚠️ Ignoring answer from self')
+        return
+      }
 
       if (peerConnectionRef.current) {
+        console.log('✅ Setting remote description (answer)...')
         await handleAnswer(peerConnectionRef.current, answer)
+      } else {
+        console.error('❌ No peer connection to handle answer!')
       }
     })
 
     // Received ICE candidate
     signalingClient.on('ice-candidate', async ({ from, candidate }) => {
+      console.log('🧊 Received ICE candidate from:', from, 'type:', candidate.candidate?.split(' ')[7])
+      
+      // Ignore candidates from ourselves
+      if (from === signalingClient.getSocket()?.id) {
+        return
+      }
+      
       if (peerConnectionRef.current) {
         await addIceCandidate(peerConnectionRef.current, candidate)
+      } else {
+        console.warn('⚠️ No peer connection for ICE candidate')
       }
     })
 
@@ -197,6 +242,20 @@ export function useCallState(roomId: string, username: string): UseCallStateRetu
   const joinCall = useCallback(
     async (callRoomId: string, callUsername: string, localStream: MediaStream) => {
       try {
+        // Prevent duplicate joins
+        if (isInCall && peerConnectionRef.current) {
+          console.warn('⚠️ Already in a call, cleaning up first')
+          if (peerConnectionRef.current) {
+            closePeerConnection(peerConnectionRef.current)
+            peerConnectionRef.current = null
+          }
+          signalingClient.leaveRoom()
+          setIsInCall(false)
+          // Small delay to ensure cleanup
+          await new Promise(resolve => setTimeout(resolve, 500))
+        }
+        
+        console.log('🚀 Joining call:', callRoomId, 'as', callUsername)
         localStreamRef.current = localStream
 
         // Create peer connection
@@ -204,10 +263,26 @@ export function useCallState(roomId: string, username: string): UseCallStateRetu
           callRoomId,
           signalingClient.getSocket()!,
           (stream) => {
-            console.log('Setting remote stream')
+            console.log('✅ Setting remote stream')
             setRemoteStream(stream)
           }
         )
+
+        // Add connection timeout (30 seconds)
+        const connectionTimeout = setTimeout(() => {
+          if (pc.iceConnectionState !== 'connected' && pc.iceConnectionState !== 'completed') {
+            console.warn('⚠️ Connection timeout - attempting to restart ICE')
+            pc.restartIce()
+          }
+        }, 30000)
+
+        // Clear timeout on successful connection
+        pc.oniceconnectionstatechange = () => {
+          console.log('🔌 ICE connection state:', pc.iceConnectionState)
+          if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
+            clearTimeout(connectionTimeout)
+          }
+        }
 
         peerConnectionRef.current = pc
 
@@ -218,13 +293,13 @@ export function useCallState(roomId: string, username: string): UseCallStateRetu
         signalingClient.joinRoom(callRoomId, callUsername)
         setIsInCall(true)
 
-        console.log('Joined call in room:', callRoomId)
+        console.log('✅ Joined call in room:', callRoomId)
       } catch (error) {
-        console.error('Error joining call:', error)
+        console.error('❌ Error joining call:', error)
         throw error
       }
     },
-    []
+    [isInCall]
   )
 
   // Leave call

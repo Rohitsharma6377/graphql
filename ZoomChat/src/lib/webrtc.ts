@@ -34,14 +34,25 @@ export function createPeerConnection(
 
   const pc = new RTCPeerConnection({
     iceServers,
+    iceCandidatePoolSize: 10,  // Pre-gather ICE candidates for faster connection
+    bundlePolicy: 'max-bundle',  // Optimize for mobile
+    rtcpMuxPolicy: 'require',    // Reduce port usage
   })
 
   // Handle ICE candidates
   pc.onicecandidate = (event) => {
     if (event.candidate) {
+      console.log('🧊 ICE candidate:', event.candidate.type)
       socket.emit('ice-candidate', { roomId, candidate: event.candidate })
       onIceCandidate?.(event.candidate)
+    } else {
+      console.log('✅ ICE gathering complete')
     }
+  }
+  
+  // Handle ICE gathering state
+  pc.onicegatheringstatechange = () => {
+    console.log('🔍 ICE gathering state:', pc.iceGatheringState)
   }
 
   // Handle remote track
@@ -124,13 +135,23 @@ export async function createOffer(
   socket: any,
   roomId: string
 ): Promise<void> {
-  const offer = await pc.createOffer({
-    offerToReceiveAudio: true,
-    offerToReceiveVideo: true,
-  })
-  await pc.setLocalDescription(offer)
-  socket.emit('offer', { roomId, offer })
-  console.log('Sent offer to room:', roomId)
+  try {
+    console.log('📝 Creating offer... Current state:', pc.signalingState)
+    
+    const offer = await pc.createOffer({
+      offerToReceiveAudio: true,
+      offerToReceiveVideo: true,
+    })
+    
+    await pc.setLocalDescription(offer)
+    console.log('✅ Set local description (offer)')
+    
+    socket.emit('offer', { roomId, offer })
+    console.log('📤 Sent offer to room:', roomId)
+  } catch (error) {
+    console.error('❌ Error creating offer:', error)
+    throw error
+  }
 }
 
 /**
@@ -146,20 +167,32 @@ export async function createAnswer(
   roomId: string,
   offer: RTCSessionDescriptionInit
 ): Promise<void> {
-  // Check if we can accept the offer
-  if (pc.signalingState !== 'stable' && pc.signalingState !== 'have-remote-offer') {
-    console.warn('Cannot create answer in state:', pc.signalingState)
-    // If we're in wrong state, reset to stable and try again
-    if (pc.signalingState === 'have-local-offer') {
-      await pc.setLocalDescription({ type: 'rollback' })
+  try {
+    console.log('📝 Creating answer... Current state:', pc.signalingState)
+    
+    // Check if we can accept the offer
+    if (pc.signalingState !== 'stable' && pc.signalingState !== 'have-remote-offer') {
+      console.warn('⚠️ Cannot create answer in state:', pc.signalingState)
+      // If we're in wrong state, reset to stable
+      if (pc.signalingState === 'have-local-offer') {
+        console.log('🔄 Rolling back local description...')
+        await pc.setLocalDescription({ type: 'rollback' })
+      }
     }
+    
+    await pc.setRemoteDescription(new RTCSessionDescription(offer))
+    console.log('✅ Set remote description (offer)')
+    
+    const answer = await pc.createAnswer()
+    await pc.setLocalDescription(answer)
+    console.log('✅ Set local description (answer)')
+    
+    socket.emit('answer', { roomId, answer })
+    console.log('📤 Sent answer to room:', roomId)
+  } catch (error) {
+    console.error('❌ Error creating answer:', error)
+    throw error
   }
-  
-  await pc.setRemoteDescription(new RTCSessionDescription(offer))
-  const answer = await pc.createAnswer()
-  await pc.setLocalDescription(answer)
-  socket.emit('answer', { roomId, answer })
-  console.log('Sent answer to room:', roomId)
 }
 
 /**
