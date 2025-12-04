@@ -28,18 +28,29 @@ export default function VideoPanel({
   const remoteScreenRef = useRef<HTMLVideoElement>(null)
   const [expandedBox, setExpandedBox] = useState<string | null>(null)
   const [remoteIsScreenSharing, setRemoteIsScreenSharing] = useState(false)
+  
+  // Check if local stream has active video track
+  const hasLocalVideo = localStream && localStream.getVideoTracks().some(track => track.enabled && track.readyState === 'live')
+  // Check if remote stream has active video track
+  const hasRemoteVideo = remoteStream && remoteStream.getVideoTracks().some(track => track.enabled && track.readyState === 'live')
 
   // Set up local video
   useEffect(() => {
     if (localVideoRef.current && localStream) {
+      console.log('🎥 Setting local video stream', localStream.getTracks())
       localVideoRef.current.srcObject = localStream
+      // Force play in case autoplay is blocked
+      localVideoRef.current.play().catch(err => console.log('Local video play error:', err))
     }
   }, [localStream])
 
   // Set up remote video and detect screen share
   useEffect(() => {
     if (remoteVideoRef.current && remoteStream) {
+      console.log('🎥 Setting remote video stream', remoteStream.getTracks())
       remoteVideoRef.current.srcObject = remoteStream
+      // Force play
+      remoteVideoRef.current.play().catch(err => console.log('Remote video play error:', err))
       
       // Check if remote stream is screen share
       const videoTracks = remoteStream.getVideoTracks()
@@ -51,6 +62,7 @@ export default function VideoPanel({
         // If it's screen share, route to screen ref instead
         if (isScreen && remoteScreenRef.current) {
           remoteScreenRef.current.srcObject = remoteStream
+          remoteScreenRef.current.play().catch(err => console.log('Remote screen play error:', err))
         }
       }
     }
@@ -59,7 +71,9 @@ export default function VideoPanel({
   // Set up local screen share
   useEffect(() => {
     if (localScreenRef.current && screenStream) {
+      console.log('🖥️ Setting local screen stream')
       localScreenRef.current.srcObject = screenStream
+      localScreenRef.current.play().catch(err => console.log('Local screen play error:', err))
     }
   }, [screenStream])
 
@@ -100,7 +114,7 @@ export default function VideoPanel({
           autoPlay
           playsInline
           muted={boxId.includes('local')}
-          className="w-full h-full object-cover"
+          className="w-full h-full object-cover bg-black"
         />
       ) : (
         <div className="w-full h-full flex items-center justify-center">
@@ -202,9 +216,9 @@ export default function VideoPanel({
           <VideoBox
             videoRef={localVideoRef}
             title={`${username} (You)`}
-            subtitle={isCameraOn ? 'Camera On' : 'Camera Off'}
-            isLive={isCameraOn && !!localStream}
-            showVideo={isCameraOn && !!localStream}
+            subtitle={hasLocalVideo ? 'Camera On' : 'Camera Off'}
+            isLive={!!hasLocalVideo}
+            showVideo={!!hasLocalVideo}
             fallbackInitial={username.charAt(0).toUpperCase()}
             gradient="bg-gradient-to-br from-purple-900 via-indigo-800 to-blue-900"
             boxId="local-camera"
@@ -230,9 +244,9 @@ export default function VideoPanel({
           <VideoBox
             videoRef={remoteVideoRef}
             title={remoteUsername}
-            subtitle={remoteStream && !remoteIsScreenSharing ? 'Connected' : 'Waiting...'}
-            isLive={!!remoteStream && !remoteIsScreenSharing}
-            showVideo={!!remoteStream && !remoteIsScreenSharing}
+            subtitle={hasRemoteVideo ? 'Connected' : 'Waiting...'}
+            isLive={!!hasRemoteVideo && !remoteIsScreenSharing}
+            showVideo={!!hasRemoteVideo && !remoteIsScreenSharing}
             fallbackInitial={remoteUsername.charAt(0).toUpperCase()}
             gradient="bg-gradient-to-br from-pink-900 via-purple-800 to-indigo-900"
             boxId="remote-camera"
