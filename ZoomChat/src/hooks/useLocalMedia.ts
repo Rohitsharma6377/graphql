@@ -1,6 +1,7 @@
 // Hook for managing local media (camera, microphone, screen share)
 
 import { useState, useCallback, useRef, useEffect } from 'react'
+import { requestMediaPermissions, requestScreenShare } from '@/lib/permissions'
 
 export interface MediaDevices {
   audioInputs: MediaDeviceInfo[]
@@ -57,44 +58,34 @@ export function useLocalMedia(): UseLocalMediaReturn {
 
   // Start local camera and microphone
   const startLocalMedia = useCallback(async (): Promise<MediaStream> => {
+    console.log('🎥 ========================================')
+    console.log('🎥 STARTING LOCAL MEDIA')
+    console.log('🎥 ========================================')
+    
     try {
-      // Try with ideal constraints first
-      let stream: MediaStream | null = null
+      // Use the permission helper with retry logic
+      const stream = await requestMediaPermissions(3)
       
-      try {
-        stream = await navigator.mediaDevices.getUserMedia({
-          video: {
-            width: { ideal: 1280 },
-            height: { ideal: 720 },
-            facingMode: 'user',
-          },
-          audio: {
-            echoCancellation: true,
-            noiseSuppression: true,
-            autoGainControl: true,
-          },
-        })
-      } catch (err) {
-        console.warn('Failed with ideal constraints, trying basic constraints:', err)
-        
-        // Fallback to basic constraints
-        stream = await navigator.mediaDevices.getUserMedia({
-          video: true,
-          audio: true,
-        })
+      if (!stream) {
+        throw new Error('Failed to get media stream')
       }
 
       setLocalStream(stream)
-      setIsCameraOn(true)
-      setIsMicOn(true)
+      setIsCameraOn(stream.getVideoTracks().length > 0)
+      setIsMicOn(stream.getAudioTracks().length > 0)
 
       // Enumerate devices after getting permission
       await enumerateDevices()
 
-      console.log('Local media started:', stream.getTracks().map((t) => t.label))
+      console.log('✅ ========================================')
+      console.log('✅ LOCAL MEDIA STARTED')
+      console.log('✅ Video tracks:', stream.getVideoTracks().map((t) => t.label))
+      console.log('✅ Audio tracks:', stream.getAudioTracks().map((t) => t.label))
+      console.log('✅ ========================================')
+      
       return stream
-    } catch (error) {
-      console.error('Error starting local media:', error)
+    } catch (error: any) {
+      console.error('❌ Error starting local media:', error.message)
       throw error
     }
   }, [enumerateDevices])
@@ -136,35 +127,42 @@ export function useLocalMedia(): UseLocalMediaReturn {
   // Start screen sharing
   const startScreenShare = useCallback(
     async (includeAudio: boolean = shareSystemAudio): Promise<MediaStream> => {
+      console.log('🖥️  ========================================')
+      console.log('🖥️  STARTING SCREEN SHARE')
+      console.log('🖥️  Include audio:', includeAudio)
+      console.log('🖥️  ========================================')
+      
       try {
-        // Request screen share with optional audio
-        const stream = await navigator.mediaDevices.getDisplayMedia({
-          video: true,
-          audio: includeAudio,
-        })
+        // Use the permission helper
+        const stream = await requestScreenShare(includeAudio)
+        
+        if (!stream) {
+          throw new Error('Failed to get screen share stream')
+        }
 
         setScreenStream(stream)
         setIsScreenSharing(true)
 
         // Listen for user stopping screen share via browser UI
         stream.getVideoTracks()[0].onended = () => {
+          console.log('⚠️  Screen share ended by user')
           stopScreenShare()
         }
 
-        console.log(
-          'Screen sharing started:',
-          stream.getTracks().map((t) => `${t.kind}: ${t.label}`)
-        )
+        console.log('✅ ========================================')
+        console.log('✅ SCREEN SHARE STARTED')
+        console.log('✅ Video tracks:', stream.getVideoTracks().map((t) => t.label))
+        console.log('✅ Audio tracks:', stream.getAudioTracks().map((t) => t.label))
+        console.log('✅ ========================================')
 
         if (includeAudio && stream.getAudioTracks().length === 0) {
-          console.warn(
-            'System audio was requested but not captured. User may need to select "Share audio" in browser dialog.'
-          )
+          console.warn('⚠️  System audio requested but not captured')
+          console.warn('   User may need to select "Share audio" in browser dialog')
         }
 
         return stream
-      } catch (error) {
-        console.error('Error starting screen share:', error)
+      } catch (error: any) {
+        console.error('❌ Error starting screen share:', error.message)
         throw error
       }
     },

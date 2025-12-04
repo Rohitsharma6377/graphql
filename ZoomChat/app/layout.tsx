@@ -3,6 +3,7 @@ import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import ThemeProvider from '@/components/ThemeProvider'
 import { AuthProvider } from '@/contexts/AuthContext'
+import PermissionRequest from '@/components/PermissionRequest'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -20,7 +21,10 @@ export default function RootLayout({
     <html lang="en">
       <body className={inter.className}>
         <AuthProvider>
-          <ThemeProvider>{children}</ThemeProvider>
+          <ThemeProvider>
+            <PermissionRequest />
+            {children}
+          </ThemeProvider>
         </AuthProvider>
       </body>
     </html>
