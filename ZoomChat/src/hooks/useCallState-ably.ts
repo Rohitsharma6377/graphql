@@ -91,27 +91,94 @@ export function useCallState(roomId: string, username: string): UseCallStateRetu
   const localStreamRef = useRef<MediaStream | null>(null)
   const isInitiatorRef = useRef(false)
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const handlersRegisteredRef = useRef(false)
 
-  // Initialize Ably signaling
+  // Helper function to set up peer connection handlers
+  const setupPeerConnectionHandlers = (pc: RTCPeerConnection, roomId: string) => {
+    // Handle remote stream - FIX for Safari/Mobile where event.streams might be empty
+    pc.ontrack = (event: RTCTrackEvent) => {
+      console.log('🎥 Received remote track:', event.track.kind, 'readyState:', event.track.readyState)
+      
+      let stream: MediaStream
+      
+      if (event.streams && event.streams[0]) {
+        // Standard case
+        stream = event.streams[0]
+        console.log('  Using event.streams[0]')
+      } else {
+        // Safari/Mobile fallback - create stream manually
+        console.log('  Creating MediaStream manually (Safari/Mobile)')
+        stream = new MediaStream()
+        stream.addTrack(event.track)
+      }
+      
+      setRemoteStream(stream)
+      console.log('✅ Remote stream set with', stream.getTracks().length, 'tracks')
+    }
+
+    // Handle ICE candidates
+    pc.onicecandidate = (event: RTCPeerConnectionIceEvent) => {
+      if (event.candidate) {
+        console.log('🧊 Sending ICE candidate:', event.candidate.candidate.substring(0, 50) + '...')
+        ablySignaling.sendIceCandidate(roomId, event.candidate.toJSON())
+      } else {
+        console.log('✅ ICE gathering complete')
+      }
+    }
+
+    // Connection state monitoring
+    pc.onconnectionstatechange = () => {
+      console.log('🔌 Connection state:', pc.connectionState)
+      
+      switch (pc.connectionState) {
+        case 'connected':
+          console.log('✅ Peer connection established!')
+          break
+        case 'disconnected':
+          console.warn('⚠️ Connection disconnected')
+          break
+        case 'failed':
+          console.error('❌ Connection failed')
+          setRemoteStream(null)
+          break
+        case 'closed':
+          console.log('🔒 Connection closed')
+          setRemoteStream(null)
+          break
+      }
+    }
+
+    // Negotiation needed (for screen share and renegotiation)
+    pc.onnegotiationneeded = async () => {
+      try {
+        console.log('🔄 Negotiation needed, creating offer...')
+        const offer = await pc.createOffer()
+        await pc.setLocalDescription(offer)
+        ablySignaling.sendOffer(roomId, offer)
+        console.log('📤 Sent renegotiation offer')
+      } catch (error) {
+        console.error('❌ Error during negotiation:', error)
+      }
+    }
+  }
+
+  // Initialize Ably signaling AND register handlers IMMEDIATELY (CRITICAL FIX)
   useEffect(() => {
+    if (handlersRegisteredRef.current) return
+
     try {
       ablySignaling.connect()
       setIsConnected(true)
-      console.log('✅ Ably signaling ready')
+      console.log('✅ Ably signaling connected')
     } catch (error) {
       console.error('❌ Failed to connect to Ably:', error)
       setIsConnected(false)
+      return
     }
 
-    return () => {
-      ablySignaling.disconnect()
-    }
-  }, [])
-
-  // Handle signaling events
-  useEffect(() => {
-    if (!isConnected || !isInCall) return
-
+    // CRITICAL: Register ALL handlers IMMEDIATELY after connection
+    // This must happen BEFORE joinRoom() is ever called
+    console.log('🎯 Registering ALL signaling event handlers...')
     const myId = ablySignaling.getClientId()
 
     // User joined
@@ -124,26 +191,41 @@ export function useCallState(roomId: string, username: string): UseCallStateRetu
       
       console.log('👥 User joined:', joinedUsername, 'ID:', userId)
       setRemotePeerId(userId)
+      
+      // Wait a bit for peer connection to be ready, then try to create offer
+      setTimeout(async () => {
+        const pc = peerConnectionRef.current
+        const localStream = localStreamRef.current
+        
+        if (!pc) {
+          console.log('⚠️ No peer connection yet when user joined, skipping offer')
+          return
+        }
 
-      // Determine who initiates based on client IDs
-      if (peerConnectionRef.current && localStreamRef.current) {
+        if (!localStream) {
+          console.log('⚠️ No local stream yet when user joined, skipping offer')
+          return
+        }
+
+        // Determine who initiates based on client IDs (higher ID initiates)
         if (myId > userId) {
-          console.log('🎯 I will initiate the offer (my ID is higher)')
+          console.log('🎯 I will initiate the offer (my ID:', myId, 'is higher than:', userId, ')')
           isInitiatorRef.current = true
           
-          setTimeout(async () => {
-            if (peerConnectionRef.current) {
-              console.log('📤 Creating and sending offer...')
-              const offer = await peerConnectionRef.current.createOffer()
-              await peerConnectionRef.current.setLocalDescription(offer)
-              ablySignaling.sendOffer(roomId, offer)
-            }
-          }, 500)
+          try {
+            console.log('📤 Creating and sending offer to:', userId)
+            const offer = await pc.createOffer()
+            await pc.setLocalDescription(offer)
+            ablySignaling.sendOffer(roomId, offer)
+            console.log('✅ Offer sent successfully')
+          } catch (error) {
+            console.error('❌ Error creating/sending offer:', error)
+          }
         } else {
-          console.log('⏳ Waiting for other peer to initiate')
+          console.log('⏳ Waiting for other peer to initiate (their ID', userId, 'is higher than mine:', myId, ')')
           isInitiatorRef.current = false
         }
-      }
+      }, 800) // Give peer connection time to be fully set up
     })
 
     // User left
@@ -253,19 +335,73 @@ export function useCallState(roomId: string, username: string): UseCallStateRetu
       }
     })
 
+    // Mark handlers as registered
+    handlersRegisteredRef.current = true
+    console.log('✅ All signaling handlers registered')
+
     return () => {
-      // Cleanup listeners
+      // Cleanup listeners and disconnect
       if (typingTimeoutRef.current) {
         clearTimeout(typingTimeoutRef.current)
       }
+      ablySignaling.disconnect()
     }
-  }, [isConnected, isInCall, roomId, remotePeerId])
+  }, []) // Run ONCE on mount, never re-run
+
+  // Watchdog: Create offer when both peers are ready but not yet connected
+  useEffect(() => {
+    if (!isInCall || !remotePeerId) return
+
+    const intervalId = setInterval(() => {
+      const pc = peerConnectionRef.current
+      const localStream = localStreamRef.current
+      const myId = ablySignaling.getClientId()
+
+      // Only run watchdog if we have everything we need
+      if (!pc || !localStream) return
+
+      // If we're supposed to be the initiator but haven't created offer yet
+      const shouldInitiate = myId > remotePeerId
+      const connectionIsStuck = 
+        pc.connectionState === 'new' && 
+        !pc.remoteDescription &&
+        !isInitiatorRef.current
+
+      if (shouldInitiate && connectionIsStuck) {
+        console.log('🔥 WATCHDOG: Connection stuck, forcing offer creation...')
+        console.log('   My ID:', myId, 'Remote ID:', remotePeerId)
+        console.log('   Connection state:', pc.connectionState)
+        console.log('   Has remote description:', !!pc.remoteDescription)
+        
+        isInitiatorRef.current = true
+
+        pc.createOffer()
+          .then((offer) => pc.setLocalDescription(offer))
+          .then(() => {
+            console.log('📤 WATCHDOG: Sending forced offer')
+            ablySignaling.sendOffer(roomId, pc.localDescription!)
+          })
+          .catch((error) => {
+            console.error('❌ WATCHDOG: Error creating offer:', error)
+            isInitiatorRef.current = false
+          })
+      }
+    }, 2000) // Check every 2 seconds
+
+    return () => clearInterval(intervalId)
+  }, [isInCall, remotePeerId, roomId])
 
   // Join call
   const joinCall = useCallback(
     async (roomId: string, username: string, localStream: MediaStream) => {
       try {
-        console.log('🚀 Joining call:', roomId, 'as', username)
+        console.log('🚀 ========================================')
+        console.log('🚀 JOINING CALL')
+        console.log('🚀 Room ID:', roomId)
+        console.log('🚀 Username:', username)
+        console.log('🚀 Client ID:', ablySignaling.getClientId())
+        console.log('🚀 Local stream tracks:', localStream.getTracks().map(t => `${t.kind}: ${t.label}`))
+        console.log('🚀 ========================================')
 
         localStreamRef.current = localStream
 
@@ -277,100 +413,44 @@ export function useCallState(roomId: string, username: string): UseCallStateRetu
         }
 
         // Create peer connection FIRST
+        console.log('📡 Creating new peer connection...')
         const pc = createPeerConnection()
         peerConnectionRef.current = pc
 
         // Add local stream tracks SECOND
-        console.log('➕ Adding local tracks to peer connection')
+        console.log('➕ Adding local tracks to peer connection...')
         localStream.getTracks().forEach((track) => {
           const sender = pc.addTrack(track, localStream)
-          console.log(`  ✅ Added ${track.kind} track:`, track.label)
+          console.log(`  ✅ Added ${track.kind} track:`, track.label, '(enabled:', track.enabled, ')')
         })
 
         // Set up ALL handlers THIRD (before any signaling)
+        console.log('🔧 Setting up peer connection handlers...')
         setupPeerConnectionHandlers(pc, roomId)
 
-        // Join room via Ably FOURTH (this triggers offer/answer)
-        ablySignaling.joinRoom(roomId, username)
+        // CRITICAL: Set isInCall to true BEFORE joining room
+        // This ensures any presence events are handled correctly
+        console.log('✅ Setting isInCall = true')
         setIsInCall(true)
 
-        console.log('✅ Call setup complete')
+        // Join room via Ably LAST (this triggers presence and signaling)
+        console.log('📢 Joining Ably room:', roomId)
+        ablySignaling.joinRoom(roomId, username)
+
+        console.log('✅ ========================================')
+        console.log('✅ CALL SETUP COMPLETE')
+        console.log('✅ Now waiting for peer connection...')
+        console.log('✅ ========================================')
       } catch (error) {
         console.error('❌ Error joining call:', error)
+        setIsInCall(false)
         throw error
       }
     },
     []
   )
 
-  // Helper function to set up peer connection handlers
-  const setupPeerConnectionHandlers = (pc: RTCPeerConnection, roomId: string) => {
-    // Handle remote stream - FIX for Safari/Mobile where event.streams might be empty
-    pc.ontrack = (event: RTCTrackEvent) => {
-      console.log('🎥 Received remote track:', event.track.kind, 'readyState:', event.track.readyState)
-      
-      let stream: MediaStream
-      
-      if (event.streams && event.streams[0]) {
-        // Standard case
-        stream = event.streams[0]
-        console.log('  Using event.streams[0]')
-      } else {
-        // Safari/Mobile fallback - create stream manually
-        console.log('  Creating MediaStream manually (Safari/Mobile)')
-        stream = new MediaStream()
-        stream.addTrack(event.track)
-      }
-      
-      setRemoteStream(stream)
-      console.log('✅ Remote stream set with', stream.getTracks().length, 'tracks')
-    }
 
-    // Handle ICE candidates
-    pc.onicecandidate = (event: RTCPeerConnectionIceEvent) => {
-      if (event.candidate) {
-        console.log('🧊 Sending ICE candidate:', event.candidate.candidate.substring(0, 50) + '...')
-        ablySignaling.sendIceCandidate(roomId, event.candidate.toJSON())
-      } else {
-        console.log('✅ ICE gathering complete')
-      }
-    }
-
-    // Connection state monitoring
-    pc.onconnectionstatechange = () => {
-      console.log('🔌 Connection state:', pc.connectionState)
-      
-      switch (pc.connectionState) {
-        case 'connected':
-          console.log('✅ Peer connection established!')
-          break
-        case 'disconnected':
-          console.warn('⚠️ Connection disconnected')
-          break
-        case 'failed':
-          console.error('❌ Connection failed')
-          setRemoteStream(null)
-          break
-        case 'closed':
-          console.log('🔒 Connection closed')
-          setRemoteStream(null)
-          break
-      }
-    }
-
-    // Negotiation needed (for screen share and renegotiation)
-    pc.onnegotiationneeded = async () => {
-      try {
-        console.log('🔄 Negotiation needed, creating offer...')
-        const offer = await pc.createOffer()
-        await pc.setLocalDescription(offer)
-        ablySignaling.sendOffer(roomId, offer)
-        console.log('📤 Sent renegotiation offer')
-      } catch (error) {
-        console.error('❌ Error during negotiation:', error)
-      }
-    }
-  }
 
   // Leave call
   const leaveCall = useCallback(() => {

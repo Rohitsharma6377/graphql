@@ -120,15 +120,23 @@ class AblySignalingClient {
 
     if (!event) return
 
-    // 🔥 Ignore only messages we sent (where from === clientId)
-    if (data?.from && data.from === this.clientId) return
+    console.log('📨 [Ably] Received message:', event, 'from:', data?.from || 'system')
 
-    // 🔥 Buffer early events until user "on()" handler exists
-    if (!this.eventHandlers.has(event)) {
-      this.earlyMessages.push({ event, data })
+    // 🔥 Ignore only messages we sent (where from === clientId)
+    if (data?.from && data.from === this.clientId) {
+      console.log('  ⏭️  Ignoring own message')
       return
     }
 
+    // 🔥 Buffer early events until user "on()" handler exists
+    if (!this.eventHandlers.has(event)) {
+      console.log('  📦 No handler registered yet, buffering message')
+      this.earlyMessages.push({ event, data })
+      console.log('  📊 Buffer now has', this.earlyMessages.length, 'messages')
+      return
+    }
+
+    console.log('  ✅ Emitting to handler')
     this.emit(event as any, data)
   }
 
@@ -136,17 +144,22 @@ class AblySignalingClient {
    * REPLAY BUFFERED MESSAGES
    * --------------------------*/
   private replayEarlyMessages(event: string) {
+    console.log('🔄 [Ably] Replaying buffered messages for:', event)
     const leftovers: any[] = []
+    let replayed = 0
 
     this.earlyMessages.forEach((msg) => {
       if (msg.event === event) {
+        console.log('  ▶️  Replaying:', msg.event)
         this.emit(event as any, msg.data)
+        replayed++
       } else {
         leftovers.push(msg)
       }
     })
 
     this.earlyMessages = leftovers
+    console.log('✅ [Ably] Replayed', replayed, 'messages,', leftovers.length, 'remaining in buffer')
   }
 
   /** -------------------------
@@ -191,12 +204,16 @@ class AblySignalingClient {
    * EVENT HANDLER API
    * --------------------------*/
   on<K extends keyof SignalingEvents>(event: K, handler: SignalingEvents[K]) {
+    console.log('🎯 [Ably] Registering handler for:', event)
+    
     if (!this.eventHandlers.has(event)) {
       this.eventHandlers.set(event, [])
+      console.log('  🔄 First handler for this event, replaying buffered messages...')
       this.replayEarlyMessages(event)
     }
 
     this.eventHandlers.get(event)!.push(handler as any)
+    console.log('  ✅ Handler registered. Total handlers for', event, ':', this.eventHandlers.get(event)!.length)
   }
 
   emit<K extends keyof SignalingEvents>(event: K, data: any) {
