@@ -8,6 +8,7 @@ import { FallingEmoji } from '@/components/FallingEmojis'
 const iceServers: RTCIceServer[] = [
   { urls: 'stun:stun.l.google.com:19302' },
   { urls: 'stun:stun1.l.google.com:19302' },
+  { urls: 'stun:stun2.l.google.com:19302' },
 ]
 
 function createPeerConnection(): RTCPeerConnection {
@@ -16,13 +17,46 @@ function createPeerConnection(): RTCPeerConnection {
     iceCandidatePoolSize: 10,
     bundlePolicy: 'max-bundle',
     rtcpMuxPolicy: 'require',
+    iceTransportPolicy: 'all',
   }
-  return new RTCPeerConnection(config)
+  
+  const pc = new RTCPeerConnection(config)
+  
+  // ICE connection state monitoring with auto-restart on failure
+  pc.oniceconnectionstatechange = () => {
+    console.log('🧊 ICE connection state:', pc.iceConnectionState)
+    if (pc.iceConnectionState === 'failed') {
+      console.warn('⚠️ ICE connection failed, restarting ICE...')
+      pc.restartIce()
+    }
+  }
+  
+  // ICE gathering state
+  pc.onicegatheringstatechange = () => {
+    console.log('📡 ICE gathering state:', pc.iceGatheringState)
+  }
+  
+  // Signaling state
+  pc.onsignalingstatechange = () => {
+    console.log('📶 Signaling state:', pc.signalingState)
+  }
+  
+  return pc
 }
 
 function closePeerConnection(pc: RTCPeerConnection): void {
+  console.log('🔌 Closing peer connection...')
+  
+  // Stop all senders
+  pc.getSenders().forEach(sender => {
+    if (sender.track) {
+      sender.track.stop()
+    }
+  })
+  
+  // Close connection
   pc.close()
-  console.log('🔌 Peer connection closed')
+  console.log('✅ Peer connection closed')
 }
 
 export interface UseCallStateReturn {
@@ -136,14 +170,32 @@ export function useCallState(roomId: string, username: string): UseCallStateRetu
       
       setRemotePeerId(from)
 
+      // Ensure peer connection exists before handling offer
+      if (!peerConnectionRef.current) {
+        console.log('⚠️ No peer connection, creating one before handling offer')
+        const pc = createPeerConnection()
+        peerConnectionRef.current = pc
+        
+        // Add local stream if available
+        if (localStreamRef.current) {
+          localStreamRef.current.getTracks().forEach((track) => {
+            pc.addTrack(track, localStreamRef.current!)
+          })
+        }
+        
+        // Set up handlers
+        setupPeerConnectionHandlers(pc, roomId)
+      }
+
       if (peerConnectionRef.current) {
         isInitiatorRef.current = false
-        console.log('📝 Creating answer...')
+        console.log('📝 Setting remote description and creating answer...')
         
         await peerConnectionRef.current.setRemoteDescription(new RTCSessionDescription(offer))
         const answer = await peerConnectionRef.current.createAnswer()
         await peerConnectionRef.current.setLocalDescription(answer)
         ablySignaling.sendAnswer(roomId, answer)
+        console.log('📤 Sent answer')
       }
     })
 
@@ -175,7 +227,15 @@ export function useCallState(roomId: string, username: string): UseCallStateRetu
 
     // New message
     ablySignaling.on('message:new', (message) => {
-      setMessages((prev) => [...prev, message])
+      setMessages((prev) => {
+        // Prevent duplicates - check if message ID already exists
+        if (prev.some(m => m.id === message.id)) {
+          console.log('⚠️ Duplicate message detected, ignoring:', message.id)
+          return prev
+        }
+        console.log('💬 New message:', message.text)
+        return [...prev, message]
+      })
     })
 
     // Typing indicator
@@ -209,42 +269,28 @@ export function useCallState(roomId: string, username: string): UseCallStateRetu
 
         localStreamRef.current = localStream
 
-        // Create peer connection
+        // Close old peer connection if exists (prevent duplicates)
+        if (peerConnectionRef.current) {
+          console.log('⚠️ Closing existing peer connection before creating new one')
+          closePeerConnection(peerConnectionRef.current)
+          peerConnectionRef.current = null
+        }
+
+        // Create peer connection FIRST
         const pc = createPeerConnection()
         peerConnectionRef.current = pc
 
-        // Add local stream
+        // Add local stream tracks SECOND
+        console.log('➕ Adding local tracks to peer connection')
         localStream.getTracks().forEach((track) => {
-          pc.addTrack(track, localStream)
+          const sender = pc.addTrack(track, localStream)
+          console.log(`  ✅ Added ${track.kind} track:`, track.label)
         })
 
-        // Handle remote stream
-        pc.ontrack = (event: RTCTrackEvent) => {
-          console.log('🎥 Received remote track:', event.track.kind)
-          const stream = event.streams[0]
-          setRemoteStream(stream)
-        }
+        // Set up ALL handlers THIRD (before any signaling)
+        setupPeerConnectionHandlers(pc, roomId)
 
-        // Handle ICE candidates
-        pc.onicecandidate = (event: RTCPeerConnectionIceEvent) => {
-          if (event.candidate) {
-            console.log('🧊 Sending ICE candidate')
-            ablySignaling.sendIceCandidate(roomId, event.candidate.toJSON())
-          }
-        }
-
-        // Connection state
-        pc.onconnectionstatechange = () => {
-          console.log('🔌 Connection state:', pc.connectionState)
-          if (pc.connectionState === 'connected') {
-            console.log('✅ Peer connection established!')
-          } else if (pc.connectionState === 'failed' || pc.connectionState === 'disconnected') {
-            console.warn('⚠️ Connection lost')
-            setRemoteStream(null)
-          }
-        }
-
-        // Join room via Ably
+        // Join room via Ably FOURTH (this triggers offer/answer)
         ablySignaling.joinRoom(roomId, username)
         setIsInCall(true)
 
@@ -256,6 +302,75 @@ export function useCallState(roomId: string, username: string): UseCallStateRetu
     },
     []
   )
+
+  // Helper function to set up peer connection handlers
+  const setupPeerConnectionHandlers = (pc: RTCPeerConnection, roomId: string) => {
+    // Handle remote stream - FIX for Safari/Mobile where event.streams might be empty
+    pc.ontrack = (event: RTCTrackEvent) => {
+      console.log('🎥 Received remote track:', event.track.kind, 'readyState:', event.track.readyState)
+      
+      let stream: MediaStream
+      
+      if (event.streams && event.streams[0]) {
+        // Standard case
+        stream = event.streams[0]
+        console.log('  Using event.streams[0]')
+      } else {
+        // Safari/Mobile fallback - create stream manually
+        console.log('  Creating MediaStream manually (Safari/Mobile)')
+        stream = new MediaStream()
+        stream.addTrack(event.track)
+      }
+      
+      setRemoteStream(stream)
+      console.log('✅ Remote stream set with', stream.getTracks().length, 'tracks')
+    }
+
+    // Handle ICE candidates
+    pc.onicecandidate = (event: RTCPeerConnectionIceEvent) => {
+      if (event.candidate) {
+        console.log('🧊 Sending ICE candidate:', event.candidate.candidate.substring(0, 50) + '...')
+        ablySignaling.sendIceCandidate(roomId, event.candidate.toJSON())
+      } else {
+        console.log('✅ ICE gathering complete')
+      }
+    }
+
+    // Connection state monitoring
+    pc.onconnectionstatechange = () => {
+      console.log('🔌 Connection state:', pc.connectionState)
+      
+      switch (pc.connectionState) {
+        case 'connected':
+          console.log('✅ Peer connection established!')
+          break
+        case 'disconnected':
+          console.warn('⚠️ Connection disconnected')
+          break
+        case 'failed':
+          console.error('❌ Connection failed')
+          setRemoteStream(null)
+          break
+        case 'closed':
+          console.log('🔒 Connection closed')
+          setRemoteStream(null)
+          break
+      }
+    }
+
+    // Negotiation needed (for screen share and renegotiation)
+    pc.onnegotiationneeded = async () => {
+      try {
+        console.log('🔄 Negotiation needed, creating offer...')
+        const offer = await pc.createOffer()
+        await pc.setLocalDescription(offer)
+        ablySignaling.sendOffer(roomId, offer)
+        console.log('📤 Sent renegotiation offer')
+      } catch (error) {
+        console.error('❌ Error during negotiation:', error)
+      }
+    }
+  }
 
   // Leave call
   const leaveCall = useCallback(() => {
@@ -281,6 +396,20 @@ export function useCallState(roomId: string, username: string): UseCallStateRetu
       if (!roomId || !username) return
 
       const timestamp = Date.now()
+      const message = {
+        id: `${ablySignaling.getClientId()}-${timestamp}`,
+        roomId,
+        from: ablySignaling.getClientId(),
+        username,
+        text,
+        timestamp,
+        read: false,
+      }
+      
+      // Add to local state immediately for sender
+      setMessages((prev) => [...prev, message])
+      
+      // Send to other users via Ably
       ablySignaling.sendMessage(roomId, text, username, timestamp)
     },
     [roomId, username]
@@ -307,21 +436,46 @@ export function useCallState(roomId: string, username: string): UseCallStateRetu
   // Add screen track
   const addScreenTrack = useCallback(
     async (screenTrack: MediaStreamTrack, screenStream: MediaStream) => {
-      if (!peerConnectionRef.current) return
+      if (!peerConnectionRef.current) {
+        console.error('❌ No peer connection to add screen track')
+        return
+      }
+
+      const pc = peerConnectionRef.current
 
       console.log('📺 Adding screen share track')
 
-      // Replace video track with screen track
-      const sender = peerConnectionRef.current
-        .getSenders()
-        .find((s) => s.track?.kind === 'video')
+      // Find existing video sender
+      const videoSender = pc.getSenders().find((s) => s.track?.kind === 'video')
 
-      if (sender) {
-        await sender.replaceTrack(screenTrack)
+      if (videoSender) {
+        // Replace existing video track with screen track
+        console.log('🔄 Replacing camera track with screen track')
+        await videoSender.replaceTrack(screenTrack)
         console.log('✅ Replaced video track with screen track')
+        
+        // Force renegotiation to ensure remote peer gets the new track
+        if (pc.signalingState === 'stable') {
+          console.log('🔄 Triggering renegotiation for screen share')
+          try {
+            const offer = await pc.createOffer()
+            await pc.setLocalDescription(offer)
+            ablySignaling.sendOffer(roomId, offer)
+            console.log('📤 Sent renegotiation offer for screen share')
+          } catch (error) {
+            console.error('❌ Error during screen share renegotiation:', error)
+          }
+        } else {
+          console.log('⏳ Waiting for stable signaling state before renegotiation')
+        }
+      } else {
+        // No existing video sender, add new track
+        console.log('➕ Adding screen track as new sender')
+        pc.addTrack(screenTrack, screenStream)
+        console.log('✅ Added screen track')
       }
     },
-    []
+    [roomId]
   )
 
   // Remove screen track

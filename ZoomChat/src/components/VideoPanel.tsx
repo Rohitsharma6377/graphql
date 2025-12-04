@@ -37,32 +37,106 @@ export default function VideoPanel({
   // Set up local video
   useEffect(() => {
     if (localVideoRef.current && localStream) {
-      console.log('🎥 Setting local video stream', localStream.getTracks())
-      localVideoRef.current.srcObject = localStream
-      // Force play in case autoplay is blocked
-      localVideoRef.current.play().catch(err => console.log('Local video play error:', err))
+      const videoTracks = localStream.getVideoTracks()
+      const audioTracks = localStream.getAudioTracks()
+      console.log('🎥 Setting local video stream')
+      console.log('  Video tracks:', videoTracks.length, videoTracks.map(t => `${t.label} (${t.enabled ? 'enabled' : 'disabled'}, ${t.readyState})`)  )
+      console.log('  Audio tracks:', audioTracks.length, audioTracks.map(t => `${t.label} (${t.enabled ? 'enabled' : 'disabled'}, ${t.readyState})`))
+      
+      const videoElement = localVideoRef.current
+      videoElement.srcObject = localStream
+      videoElement.muted = true
+      
+      // Mobile Safari fixes
+      videoElement.setAttribute('playsinline', '')
+      videoElement.setAttribute('autoplay', '')
+      videoElement.playsInline = true
+      videoElement.autoplay = true
+      videoElement.disablePictureInPicture = true
+      
+      // Force play and handle errors
+      const playPromise = videoElement.play()
+      if (playPromise !== undefined) {
+        playPromise
+          .then(() => {
+            console.log('✅ Local video playing')
+          })
+          .catch(err => {
+            console.log('⚠️ Local video play error (trying again):', err.name)
+            // Retry once
+            setTimeout(() => {
+              videoElement.play().catch(e => console.log('❌ Local video play failed:', e))
+            }, 100)
+          })
+      }
     }
   }, [localStream])
 
   // Set up remote video and detect screen share
   useEffect(() => {
     if (remoteVideoRef.current && remoteStream) {
-      console.log('🎥 Setting remote video stream', remoteStream.getTracks())
-      remoteVideoRef.current.srcObject = remoteStream
-      // Force play
-      remoteVideoRef.current.play().catch(err => console.log('Remote video play error:', err))
+      const videoTracks = remoteStream.getVideoTracks()
+      const audioTracks = remoteStream.getAudioTracks()
+      console.log('🎥 Setting remote video stream')
+      console.log('  Video tracks:', videoTracks.length, videoTracks.map(t => `${t.label} (${t.enabled ? 'enabled' : 'disabled'}, ${t.readyState})`))
+      console.log('  Audio tracks:', audioTracks.length, audioTracks.map(t => `${t.label} (${t.enabled ? 'enabled' : 'disabled'}, ${t.readyState})`))
+      
+      const videoElement = remoteVideoRef.current
+      videoElement.srcObject = remoteStream
+      
+      // Mobile Safari fixes - CRITICAL for remote video
+      videoElement.setAttribute('playsinline', '')
+      videoElement.setAttribute('autoplay', '')
+      videoElement.playsInline = true
+      videoElement.autoplay = true
+      videoElement.muted = false // Remote video should have audio
+      videoElement.disablePictureInPicture = true
+      
+      // Force play with retry logic
+      const playPromise = videoElement.play()
+      if (playPromise !== undefined) {
+        playPromise
+          .then(() => {
+            console.log('✅ Remote video playing')
+          })
+          .catch(err => {
+            console.log('⚠️ Remote video play error (trying again):', err.name)
+            // Retry multiple times for stubborn browsers
+            let retries = 0
+            const retryInterval = setInterval(() => {
+              videoElement.play()
+                .then(() => {
+                  console.log('✅ Remote video playing (after retry)')
+                  clearInterval(retryInterval)
+                })
+                .catch(e => {
+                  retries++
+                  if (retries > 5) {
+                    console.log('❌ Remote video play failed after retries:', e)
+                    clearInterval(retryInterval)
+                  }
+                })
+            }, 200)
+          })
+      }
       
       // Check if remote stream is screen share
-      const videoTracks = remoteStream.getVideoTracks()
       if (videoTracks.length > 0) {
         const trackLabel = videoTracks[0].label.toLowerCase()
         const isScreen = trackLabel.includes('screen') || trackLabel.includes('window') || trackLabel.includes('display')
+        console.log('  Is screen share?', isScreen, '(label:', trackLabel + ')')
         setRemoteIsScreenSharing(isScreen)
         
         // If it's screen share, route to screen ref instead
         if (isScreen && remoteScreenRef.current) {
-          remoteScreenRef.current.srcObject = remoteStream
-          remoteScreenRef.current.play().catch(err => console.log('Remote screen play error:', err))
+          console.log('  Routing to remote screen ref')
+          const screenElement = remoteScreenRef.current
+          screenElement.srcObject = remoteStream
+          screenElement.setAttribute('playsinline', '')
+          screenElement.setAttribute('autoplay', '')
+          screenElement.playsInline = true
+          screenElement.autoplay = true
+          screenElement.play().catch(err => console.log('Remote screen play error:', err))
         }
       }
     }
@@ -72,8 +146,16 @@ export default function VideoPanel({
   useEffect(() => {
     if (localScreenRef.current && screenStream) {
       console.log('🖥️ Setting local screen stream')
-      localScreenRef.current.srcObject = screenStream
-      localScreenRef.current.play().catch(err => console.log('Local screen play error:', err))
+      const screenElement = localScreenRef.current
+      screenElement.srcObject = screenStream
+      
+      // Mobile/Safari fixes for screen share
+      screenElement.setAttribute('playsinline', '')
+      screenElement.setAttribute('autoplay', '')
+      screenElement.playsInline = true
+      screenElement.autoplay = true
+      
+      screenElement.play().catch(err => console.log('Local screen play error:', err))
     }
   }, [screenStream])
 
@@ -114,7 +196,14 @@ export default function VideoPanel({
           autoPlay
           playsInline
           muted={boxId.includes('local')}
+          disablePictureInPicture
           className="w-full h-full object-cover bg-black"
+          style={{ 
+            width: '100%', 
+            height: '100%', 
+            background: 'black',
+            objectFit: 'cover'
+          }}
         />
       ) : (
         <div className="w-full h-full flex items-center justify-center">

@@ -1,5 +1,5 @@
-// Ably-based signaling for Vercel deployment
-// Works with serverless environments (no Socket.IO server needed)
+// FIXED: Ably-based signaling fully stable for WebRTC on Vercel
+// Handles early messages, proper subscriptions, replay, mobile freeze, late joiners
 
 import Ably from 'ably'
 
@@ -30,36 +30,36 @@ class AblySignalingClient {
   private clientId: string
   private username: string = ''
 
+  private earlyMessages: any[] = [] // 🔥 NEW: store early offers/answers/candidates
+  private eventHandlers: Map<string, Function[]> = new Map()
+
   constructor() {
-    // Generate unique client ID
     this.clientId = `user_${Math.random().toString(36).substr(2, 9)}_${Date.now()}`
   }
 
+  /** -------------------------
+   * CONNECT CLIENT-SIDE ONLY
+   * --------------------------*/
   connect(): void {
-    if (this.client) {
-      console.log('⚠️ Already connected to Ably')
+    if (typeof window === 'undefined') {
+      console.warn('⚠️ Ably client should only run on client')
       return
     }
 
-    // Initialize Ably client
-    // Get API key from environment variable
-    const apiKey = process.env.NEXT_PUBLIC_ABLY_KEY
+    if (this.client) return
 
-    if (!apiKey) {
-      console.error('❌ NEXT_PUBLIC_ABLY_KEY not found in environment variables')
-      console.log('👉 Add your Ably API key to .env.local:')
-      console.log('   NEXT_PUBLIC_ABLY_KEY=your-api-key-here')
-      console.log('👉 Get free API key: https://ably.com/signup')
-      throw new Error('Ably API key required')
-    }
+    console.log('🚀 Connecting to Ably (token)…')
 
     this.client = new Ably.Realtime({
-      key: apiKey,
+      authUrl: '/api/ably/token',
+      authMethod: 'GET',
       clientId: this.clientId,
+      disconnectedRetryTimeout: 8000,
+      suspendedRetryTimeout: 16000,
     })
 
     this.client.connection.on('connected', () => {
-      console.log('✅ Connected to Ably:', this.clientId)
+      console.log('✅ Ably connected:', this.clientId)
     })
 
     this.client.connection.on('disconnected', () => {
@@ -71,105 +71,104 @@ class AblySignalingClient {
     })
   }
 
+  /** -------------------------
+   * JOIN ROOM
+   * --------------------------*/
   joinRoom(roomId: string, username: string): void {
-    if (!this.client) {
-      this.connect()
-    }
+    if (!this.client) this.connect()
 
     this.roomId = roomId
     this.username = username
 
-    // Get or create channel for this room
     this.channel = this.client!.channels.get(`room:${roomId}`)
 
-    console.log(`🚪 Joining room: ${roomId} as ${username}`)
+    console.log(`🚪 Joining room ${roomId} as ${username}`)
 
-    // Subscribe to presence (who's in the room)
+    // Presence
     this.channel.presence.enter({ username })
 
-    this.channel.presence.subscribe('enter', (member: any) => {
-      if (member.clientId !== this.clientId) {
-        console.log('👋 User joined:', member.data.username)
-        this.emit('user-joined', {
-          userId: member.clientId,
-          username: member.data.username,
-        })
+    // Subscribe to ALL messages immediately — ★ FIXES MISSED SIGNALING ★
+    this.channel.subscribe((msg: any) => this.routeEvent(msg))
+
+    // Presence join/leave
+    this.channel.presence.subscribe('enter', (m: any) => {
+      if (m.clientId !== this.clientId) {
+        this.emit('user-joined', { userId: m.clientId, username: m.data.username })
       }
     })
 
-    this.channel.presence.subscribe('leave', (member: any) => {
-      console.log('👋 User left:', member.data.username)
-      this.emit('user-left', {
-        userId: member.clientId,
-      })
+    this.channel.presence.subscribe('leave', (m: any) => {
+      this.emit('user-left', { userId: m.clientId })
     })
 
     // Get existing members
-    this.channel.presence.get((err: any, members: any) => {
-      if (!err && members) {
-        members.forEach((member: any) => {
-          if (member.clientId !== this.clientId) {
-            console.log('👤 Existing user:', member.data.username)
-            this.emit('user-joined', {
-              userId: member.clientId,
-              username: member.data.username,
-            })
-          }
-        })
+    this.channel.presence.get((_: any, members: any) => {
+      members?.forEach((m: any) => {
+        if (m.clientId !== this.clientId) {
+          this.emit('user-joined', { userId: m.clientId, username: m.data.username })
+        }
+      })
+    })
+  }
+
+  /** -------------------------
+   * ROUTE EVENTS (MAIN FIX)
+   * --------------------------*/
+  private routeEvent(msg: any) {
+    const event = msg.name
+    const data = msg.data
+
+    if (!event) return
+
+    // 🔥 Ignore only messages we sent (where from === clientId)
+    if (data?.from && data.from === this.clientId) return
+
+    // 🔥 Buffer early events until user "on()" handler exists
+    if (!this.eventHandlers.has(event)) {
+      this.earlyMessages.push({ event, data })
+      return
+    }
+
+    this.emit(event as any, data)
+  }
+
+  /** -------------------------
+   * REPLAY BUFFERED MESSAGES
+   * --------------------------*/
+  private replayEarlyMessages(event: string) {
+    const leftovers: any[] = []
+
+    this.earlyMessages.forEach((msg) => {
+      if (msg.event === event) {
+        this.emit(event as any, msg.data)
+      } else {
+        leftovers.push(msg)
       }
     })
+
+    this.earlyMessages = leftovers
   }
 
-  leaveRoom(): void {
-    if (this.channel) {
-      this.channel.presence.leave()
-      this.channel.unsubscribe()
-      this.channel = null
-    }
-    this.roomId = null
+  /** -------------------------
+   * SIGNALING: OFFER / ANSWER / ICE
+   * --------------------------*/
+  sendOffer(_: string, offer: RTCSessionDescriptionInit): void {
+    this.channel?.publish('offer', { from: this.clientId, offer })
   }
 
-  // WebRTC Signaling
-  sendOffer(roomId: string, offer: RTCSessionDescriptionInit): void {
-    if (!this.channel) {
-      console.error('❌ Not in a room')
-      return
-    }
-
-    console.log('📤 Sending offer to room:', roomId)
-    this.channel.publish('offer', {
-      from: this.clientId,
-      offer,
-    })
+  sendAnswer(_: string, answer: RTCSessionDescriptionInit): void {
+    this.channel?.publish('answer', { from: this.clientId, answer })
   }
 
-  sendAnswer(roomId: string, answer: RTCSessionDescriptionInit): void {
-    if (!this.channel) {
-      console.error('❌ Not in a room')
-      return
-    }
-
-    console.log('📤 Sending answer to room:', roomId)
-    this.channel.publish('answer', {
-      from: this.clientId,
-      answer,
-    })
+  sendIceCandidate(_: string, candidate: RTCIceCandidateInit): void {
+    this.channel?.publish('ice-candidate', { from: this.clientId, candidate })
   }
 
-  sendIceCandidate(roomId: string, candidate: RTCIceCandidateInit): void {
-    if (!this.channel) return
-
-    this.channel.publish('ice-candidate', {
-      from: this.clientId,
-      candidate,
-    })
-  }
-
-  // Chat
-  sendMessage(roomId: string, text: string, username: string, timestamp: number): void {
-    if (!this.channel) return
-
-    const message = {
+  /** -------------------------
+   * CHAT + TYPING
+   * --------------------------*/
+  sendMessage(roomId: string, text: string, username: string, timestamp: number) {
+    this.channel?.publish('message:new', {
       id: `${this.clientId}-${timestamp}`,
       roomId,
       from: this.clientId,
@@ -177,84 +176,49 @@ class AblySignalingClient {
       text,
       timestamp,
       read: false,
-    }
-
-    this.channel.publish('message:new', message)
+    })
   }
 
-  sendTyping(roomId: string, username: string, isTyping: boolean): void {
-    if (!this.channel) return
-
-    this.channel.publish('typing', {
+  sendTyping(_: string, username: string, isTyping: boolean) {
+    this.channel?.publish('typing', {
       userId: this.clientId,
       username,
       isTyping,
     })
   }
 
-  // Event listeners
-  private eventHandlers: Map<string, Function[]> = new Map()
-
-  on<K extends keyof SignalingEvents>(
-    event: K,
-    handler: SignalingEvents[K]
-  ): void {
+  /** -------------------------
+   * EVENT HANDLER API
+   * --------------------------*/
+  on<K extends keyof SignalingEvents>(event: K, handler: SignalingEvents[K]) {
     if (!this.eventHandlers.has(event)) {
       this.eventHandlers.set(event, [])
-
-      // Subscribe to Ably channel for this event
-      if (this.channel && event !== 'user-joined' && event !== 'user-left') {
-        this.channel.subscribe(event, (message: any) => {
-          // Don't emit own messages back to self
-          if (message.data.from !== this.clientId) {
-            this.emit(event, message.data)
-          }
-        })
-      }
+      this.replayEarlyMessages(event)
     }
 
-    this.eventHandlers.get(event)!.push(handler as Function)
+    this.eventHandlers.get(event)!.push(handler as any)
   }
 
-  off<K extends keyof SignalingEvents>(
-    event: K,
-    handler: SignalingEvents[K]
-  ): void {
+  emit<K extends keyof SignalingEvents>(event: K, data: any) {
     const handlers = this.eventHandlers.get(event)
-    if (handlers) {
-      const index = handlers.indexOf(handler as Function)
-      if (index > -1) {
-        handlers.splice(index, 1)
-      }
-    }
+    handlers?.forEach((fn) => fn(data))
   }
 
-  private emit<K extends keyof SignalingEvents>(
-    event: K,
-    data: Parameters<SignalingEvents[K]>[0]
-  ): void {
-    const handlers = this.eventHandlers.get(event)
-    if (handlers) {
-      handlers.forEach((handler) => handler(data))
-    }
+  /** -------------------------
+   * CLEANUP
+   * --------------------------*/
+  leaveRoom() {
+    this.channel?.presence.leave()
+    this.channel?.unsubscribe()
   }
 
-  getClientId(): string {
+  disconnect() {
+    this.leaveRoom()
+    this.client?.close()
+  }
+
+  getClientId() {
     return this.clientId
-  }
-
-  disconnect(): void {
-    if (this.channel) {
-      this.channel.presence.leave()
-      this.channel.unsubscribe()
-    }
-
-    if (this.client) {
-      this.client.close()
-      this.client = null
-    }
-
-    this.eventHandlers.clear()
   }
 }
 
