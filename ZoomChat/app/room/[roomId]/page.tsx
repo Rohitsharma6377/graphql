@@ -10,7 +10,7 @@ import CallControls from '@/components/CallControls'
 import FallingEmojis from '@/components/FallingEmojis'
 import EmojiNotification from '@/components/EmojiNotification'
 import { useLocalMedia } from '@/hooks/useLocalMedia'
-import { useCallState } from '@/hooks/useCallState'
+import { useCallState } from '@/hooks/useCallState-ably'
 
 export default function RoomPage() {
   const params = useParams()
