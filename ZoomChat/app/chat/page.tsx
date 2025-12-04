@@ -6,6 +6,8 @@ import { motion } from 'framer-motion'
 import VideoPanel from '@/components/VideoPanel'
 import ChatWindow from '@/components/ChatWindow'
 import CallControls from '@/components/CallControls'
+import FallingEmojis from '@/components/FallingEmojis'
+import EmojiNotification from '@/components/EmojiNotification'
 import { useLocalMedia } from '@/hooks/useLocalMedia'
 import { useCallState } from '@/hooks/useCallState'
 
@@ -40,10 +42,13 @@ export default function ChatPage() {
     remoteStream,
     messages,
     typingUser,
+    fallingEmojis,
+    lastEmojiSender,
     joinCall,
     leaveCall,
     sendMessage,
     sendTyping,
+    sendEmoji,
     addScreenTrack,
     removeScreenTrack,
   } = useCallState(roomId, username)
@@ -294,9 +299,19 @@ export default function ChatPage() {
               username={username}
               onSendMessage={sendMessage}
               onTyping={sendTyping}
+              onSendEmoji={sendEmoji}
             />
           </motion.div>
         </div>
+
+        {/* Falling Emojis Overlay */}
+        <FallingEmojis emojis={fallingEmojis} />
+        
+        {/* Emoji Notification */}
+        <EmojiNotification
+          emoji={lastEmojiSender?.emoji || null}
+          username={lastEmojiSender?.username || null}
+        />
       </div>
     </div>
   )

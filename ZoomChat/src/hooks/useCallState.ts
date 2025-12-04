@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useRef, useEffect } from 'react'
 import { signalingClient, Message, RoomUser } from '@/lib/signaling'
+import { FallingEmoji } from '@/components/FallingEmojis'
 import {
   createPeerConnection,
   addStreamToPeer,
@@ -22,10 +23,13 @@ export interface UseCallStateReturn {
   messages: Message[]
   roomUsers: RoomUser[]
   typingUser: string | null
+  fallingEmojis: FallingEmoji[]
+  lastEmojiSender: { emoji: string; username: string } | null
   joinCall: (roomId: string, username: string, localStream: MediaStream) => Promise<void>
   leaveCall: () => void
   sendMessage: (text: string) => void
   sendTyping: (isTyping: boolean) => void
+  sendEmoji: (emoji: string) => void
   addScreenTrack: (screenTrack: MediaStreamTrack, screenStream: MediaStream) => Promise<void>
   removeScreenTrack: () => void
 }
@@ -38,6 +42,8 @@ export function useCallState(roomId: string, username: string): UseCallStateRetu
   const [messages, setMessages] = useState<Message[]>([])
   const [roomUsers, setRoomUsers] = useState<RoomUser[]>([])
   const [typingUser, setTypingUser] = useState<string | null>(null)
+  const [fallingEmojis, setFallingEmojis] = useState<FallingEmoji[]>([])
+  const [lastEmojiSender, setLastEmojiSender] = useState<{ emoji: string; username: string } | null>(null)
 
   const peerConnectionRef = useRef<RTCPeerConnection | null>(null)
   const localStreamRef = useRef<MediaStream | null>(null)
@@ -141,6 +147,23 @@ export function useCallState(roomId: string, username: string): UseCallStateRetu
       }
     })
 
+    // Emoji reaction
+    signalingClient.on('emoji:receive', ({ emoji, from, username: senderUsername, id }) => {
+      console.log('🎉 Received emoji:', emoji, 'from', senderUsername, 'id:', id)
+      
+      // Add new emoji to the array
+      const newEmoji = { id, emoji, timestamp: Date.now() }
+      setFallingEmojis([newEmoji])
+      
+      console.log('✨ Triggering falling animation for:', emoji)
+      
+      // Only show notification if from someone else
+      if (senderUsername !== username) {
+        setLastEmojiSender({ emoji, username: senderUsername })
+        console.log('📢 Showing notification from:', senderUsername)
+      }
+    })
+
     // Presence update
     signalingClient.on('presence:update', ({ users }) => {
       setRoomUsers(users)
@@ -155,6 +178,7 @@ export function useCallState(roomId: string, username: string): UseCallStateRetu
       signalingClient.off('message:new')
       signalingClient.off('message:read')
       signalingClient.off('typing')
+      signalingClient.off('emoji:receive')
       signalingClient.off('presence:update')
     }
   }, [isConnected, roomId, remotePeerId])
@@ -228,6 +252,15 @@ export function useCallState(roomId: string, username: string): UseCallStateRetu
     [isInCall, roomId, username]
   )
 
+  // Send emoji reaction
+  const sendEmoji = useCallback(
+    (emoji: string) => {
+      if (!isInCall) return
+      signalingClient.sendEmoji(roomId, emoji, username)
+    },
+    [isInCall, roomId, username]
+  )
+
   // Add screen share track to existing connection
   const addScreenTrack = useCallback(
     async (screenTrack: MediaStreamTrack, screenStream: MediaStream) => {
@@ -286,10 +319,13 @@ export function useCallState(roomId: string, username: string): UseCallStateRetu
     messages,
     roomUsers,
     typingUser,
+    fallingEmojis,
+    lastEmojiSender,
     joinCall,
     leaveCall,
     sendMessage,
     sendTyping,
+    sendEmoji,
     addScreenTrack,
     removeScreenTrack,
   }

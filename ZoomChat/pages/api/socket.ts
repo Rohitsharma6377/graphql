@@ -164,6 +164,21 @@ const ioHandler = (req: NextApiRequest, res: NextApiResponseServerIO) => {
         })
       })
 
+      // Emoji reaction
+      socket.on('emoji:send', ({ roomId, emoji, username, timestamp }) => {
+        const emojiData = {
+          id: `${socket.id}-${timestamp}`,
+          emoji,
+          from: socket.id,
+          username,
+        }
+
+        // Broadcast to room (including sender)
+        io.to(roomId).emit('emoji:receive', emojiData)
+
+        console.log(`Emoji in ${roomId} from ${username}: ${emoji}`)
+      })
+
       // Disconnect
       socket.on('disconnect', () => {
         console.log('Client disconnected:', socket.id)

@@ -8,6 +8,7 @@ A beautiful, real-time video chat application with screen sharing, system audio 
 - 🖥️ **Screen Sharing**: Share your entire screen, specific window, or browser tab
 - 🔊 **System Audio**: Capture and share system audio when screen sharing (browser-dependent)
 - 💬 **Real-time Chat**: Instant messaging with typing indicators and read receipts
+- 😊 **Emoji Reactions**: Send animated emojis that fall beautifully across both screens
 - 📱 **Picture-in-Picture**: Keep your camera visible while screen sharing
 - 🎨 **Beautiful UI**: Warm pink-to-sky-blue gradient theme with smooth animations
 - 🔄 **WebRTC P2P**: Direct peer-to-peer connections with STUN/TURN support

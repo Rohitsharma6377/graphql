@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Message } from '@/lib/signaling'
+import EmojiPicker from './EmojiPicker'
 
 interface ChatWindowProps {
   messages: Message[]
@@ -10,6 +11,7 @@ interface ChatWindowProps {
   username: string
   onSendMessage: (text: string) => void
   onTyping: (isTyping: boolean) => void
+  onSendEmoji: (emoji: string) => void
 }
 
 export default function ChatWindow({
@@ -18,6 +20,7 @@ export default function ChatWindow({
   username,
   onSendMessage,
   onTyping,
+  onSendEmoji,
 }: ChatWindowProps) {
   const [inputValue, setInputValue] = useState('')
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -137,7 +140,10 @@ export default function ChatWindow({
 
       {/* Input */}
       <form onSubmit={handleSubmit} className="p-4 border-t border-white/30">
-        <div className="flex gap-2">
+        <div className="flex gap-2 items-center">
+          {/* Emoji Picker */}
+          <EmojiPicker onEmojiSelect={onSendEmoji} />
+          
           <input
             type="text"
             value={inputValue}

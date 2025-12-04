@@ -12,6 +12,8 @@ export interface SignalingEvents {
   'message:read': (data: { messageId: string; userId: string }) => void
   'typing': (data: { userId: string; username: string; isTyping: boolean }) => void
   'presence:update': (data: { users: RoomUser[] }) => void
+  'emoji:send': (data: { emoji: string; from: string; username: string }) => void
+  'emoji:receive': (data: { emoji: string; from: string; username: string; id: string }) => void
 }
 
 export interface Message {
@@ -95,6 +97,21 @@ class SignalingClient {
     if (!this.socket) return
 
     this.socket.emit('typing', { roomId, username, isTyping })
+  }
+
+  sendEmoji(roomId: string, emoji: string, username: string): void {
+    if (!this.socket) {
+      console.error('❌ Cannot send emoji: Socket not connected')
+      return
+    }
+
+    console.log('📤 Sending emoji:', emoji, 'to room:', roomId)
+    this.socket.emit('emoji:send', {
+      roomId,
+      emoji,
+      username,
+      timestamp: Date.now(),
+    })
   }
 
   on<K extends keyof SignalingEvents>(event: K, handler: SignalingEvents[K]): void {
