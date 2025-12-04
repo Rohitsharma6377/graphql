@@ -75,13 +75,22 @@ export function useCallState(roomId: string, username: string): UseCallStateRetu
 
     // User joined
     signalingClient.on('user-joined', async ({ userId, username: joinedUsername }) => {
-      console.log('User joined:', joinedUsername)
+      console.log('User joined:', joinedUsername, 'My ID:', signalingClient.getSocket()?.id)
       setRemotePeerId(userId)
 
-      // If we're already in the room, initiate the call
+      // If we're already in the room, determine who initiates based on socket IDs
+      // to prevent both peers from creating offers simultaneously
       if (peerConnectionRef.current && localStreamRef.current) {
-        isInitiatorRef.current = true
-        await createOffer(peerConnectionRef.current, signalingClient.getSocket()!, roomId)
+        const myId = signalingClient.getSocket()?.id || ''
+        // Only initiate if our ID is "greater" to ensure only one peer initiates
+        if (myId > userId) {
+          console.log('I will initiate the offer')
+          isInitiatorRef.current = true
+          await createOffer(peerConnectionRef.current, signalingClient.getSocket()!, roomId)
+        } else {
+          console.log('Waiting for other peer to initiate')
+          isInitiatorRef.current = false
+        }
       }
     })
 
@@ -96,10 +105,11 @@ export function useCallState(roomId: string, username: string): UseCallStateRetu
 
     // Received offer
     signalingClient.on('offer', async ({ from, offer }) => {
-      console.log('Received offer from:', from)
+      console.log('Received offer from:', from, 'Current state:', peerConnectionRef.current?.signalingState)
       setRemotePeerId(from)
 
       if (peerConnectionRef.current) {
+        isInitiatorRef.current = false
         await createAnswer(peerConnectionRef.current, signalingClient.getSocket()!, roomId, offer)
       }
     })
@@ -267,20 +277,21 @@ export function useCallState(roomId: string, username: string): UseCallStateRetu
       if (!peerConnectionRef.current) return
 
       try {
-        // Try to add as additional track (some browsers support multiple video tracks)
-        addAdditionalVideoTrack(peerConnectionRef.current, screenTrack, screenStream)
-
-        // Renegotiate
-        if (isInitiatorRef.current) {
-          await createOffer(peerConnectionRef.current, signalingClient.getSocket()!, roomId)
+        // Replace camera track with screen track (more reliable than adding multiple tracks)
+        const sender = await replaceVideoTrack(peerConnectionRef.current, screenTrack)
+        
+        if (!sender) {
+          // If no video sender exists, add the track
+          addAdditionalVideoTrack(peerConnectionRef.current, screenTrack, screenStream)
         }
 
-        console.log('Added screen share track')
-      } catch (error) {
-        console.error('Error adding screen track, trying replaceTrack:', error)
+        // Always renegotiate when changing tracks, regardless of who initiated originally
+        console.log('Renegotiating for screen share...')
+        await createOffer(peerConnectionRef.current, signalingClient.getSocket()!, roomId)
 
-        // Fallback: replace camera track with screen track
-        await replaceVideoTrack(peerConnectionRef.current, screenTrack)
+        console.log('Added screen share track and renegotiated')
+      } catch (error) {
+        console.error('Error adding screen track:', error)
       }
     },
     [roomId]
@@ -295,13 +306,12 @@ export function useCallState(roomId: string, username: string): UseCallStateRetu
     if (cameraTrack) {
       await replaceVideoTrack(peerConnectionRef.current, cameraTrack)
 
-      // Renegotiate
-      if (isInitiatorRef.current) {
-        await createOffer(peerConnectionRef.current, signalingClient.getSocket()!, roomId)
-      }
+      // Always renegotiate when changing tracks
+      console.log('Renegotiating after stopping screen share...')
+      await createOffer(peerConnectionRef.current, signalingClient.getSocket()!, roomId)
     }
 
-    console.log('Removed screen share track')
+    console.log('Removed screen share track and renegotiated')
   }, [roomId])
 
   // Cleanup on unmount

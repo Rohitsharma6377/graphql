@@ -23,27 +23,27 @@ export default function SunsetBirds() {
   const [clouds, setClouds] = useState<Cloud[]>([])
 
   useEffect(() => {
-    // Flying birds
+    // Flying birds - more birds for dynamic sky
     const newBirds: Bird[] = []
-    for (let i = 0; i < 8; i++) {
+    for (let i = 0; i < 12; i++) {
       newBirds.push({
         id: i,
-        startY: 10 + Math.random() * 40,
-        duration: 15 + Math.random() * 10,
-        delay: Math.random() * 8,
-        size: 25 + Math.random() * 15,
+        startY: 10 + Math.random() * 50,
+        duration: 12 + Math.random() * 10,
+        delay: Math.random() * 10,
+        size: 20 + Math.random() * 20,
       })
     }
     setBirds(newBirds)
 
     // Floating clouds
     const newClouds: Cloud[] = []
-    for (let i = 0; i < 5; i++) {
+    for (let i = 0; i < 8; i++) {
       newClouds.push({
         id: i,
-        top: 10 + Math.random() * 30,
-        duration: 30 + Math.random() * 20,
-        delay: Math.random() * 10,
+        top: 5 + Math.random() * 40,
+        duration: 25 + Math.random() * 25,
+        delay: Math.random() * 15,
       })
     }
     setClouds(newClouds)

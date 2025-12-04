@@ -9,6 +9,7 @@ import SparkleEffect from './SparkleEffect'
 import RomanticRoses from './RomanticRoses'
 import SunsetBirds from './SunsetBirds'
 import OceanWaves from './OceanWaves'
+import NightLofiBackground from './animations/NightLofiBackground'
 
 export default function ThemeProvider({ children }: { children: React.ReactNode }) {
   const { theme } = useTheme()
@@ -61,6 +62,11 @@ export default function ThemeProvider({ children }: { children: React.ReactNode 
           <OceanWaves />
           <FloatingHearts />
           <SparkleEffect />
+        </>
+      )}
+      {theme === 'nightlofi' && (
+        <>
+          <NightLofiBackground />
         </>
       )}
 

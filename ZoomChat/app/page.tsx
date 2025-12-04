@@ -3,19 +3,26 @@
 import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { useEffect } from 'react'
+import { useAuth } from '@/contexts/AuthContext'
 
 export default function Home() {
   const router = useRouter()
+  const { user, isAuthenticated, loading } = useAuth()
 
   useEffect(() => {
-    // Check if user is logged in
-    const username = localStorage.getItem('heartshare_username')
-    if (username) {
-      router.push('/chat')
-    } else {
-      router.push('/login')
+    if (!loading) {
+      if (isAuthenticated) {
+        // Redirect admins to admin panel
+        if (user?.role === 'admin') {
+          router.push('/admin')
+        } else {
+          router.push('/chat')
+        }
+      } else {
+        router.push('/auth/login')
+      }
     }
-  }, [router])
+  }, [isAuthenticated, loading, user, router])
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4">
@@ -35,14 +42,11 @@ export default function Home() {
         <p className="text-gray-700 mb-8 text-lg">
           Connect face-to-face with crystal clear video and audio
         </p>
-        <motion.button
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-          className="btn-primary w-full"
-          onClick={() => router.push('/login')}
-        >
-          Get Started
-        </motion.button>
+        <div className="flex gap-2 justify-center">
+          <div className="w-2 h-2 bg-pink-400 rounded-full animate-bounce"></div>
+          <div className="w-2 h-2 bg-pink-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+          <div className="w-2 h-2 bg-pink-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+        </div>
       </motion.div>
     </div>
   )

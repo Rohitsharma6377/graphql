@@ -28,6 +28,8 @@ const ioHandler = (req: NextApiRequest, res: NextApiResponseServerIO) => {
     })
 
     res.socket.server.io = io
+    // Make io globally available for admin routes
+    global.io = io
 
     io.on('connection', (socket) => {
       console.log('Client connected:', socket.id)
@@ -43,17 +45,25 @@ const ioHandler = (req: NextApiRequest, res: NextApiResponseServerIO) => {
         }
 
         const room = rooms.get(roomId)!
+        
+        // Get existing users BEFORE adding the new user
+        const existingUsers = Array.from(room.entries()).map(([userId, data]) => ({
+          userId,
+          username: data.username,
+        }))
+
+        // Add the new user to the room
         room.set(socket.id, { username, socketId: socket.id })
 
         console.log(`${username} joined room ${roomId}`)
 
-        // Notify others in the room
+        // Notify others in the room about the new user
         socket.to(roomId).emit('user-joined', {
           userId: socket.id,
           username,
         })
 
-        // Send current users to the new user
+        // Send existing users to the new user (for presence list)
         const users = Array.from(room.entries()).map(([userId, data]) => ({
           userId,
           username: data.username,
@@ -62,11 +72,23 @@ const ioHandler = (req: NextApiRequest, res: NextApiResponseServerIO) => {
 
         socket.emit('presence:update', { users })
 
+        // CRITICAL FIX: Notify the new user about each existing user
+        // so they can set up WebRTC peer connections
+        existingUsers.forEach(({ userId, username: existingUsername }) => {
+          socket.emit('user-joined', {
+            userId,
+            username: existingUsername,
+          })
+        })
+
         // Send existing messages
         const roomMessages = messages.get(roomId) || []
         roomMessages.forEach((msg) => {
           socket.emit('message:new', msg)
         })
+
+        // Emit admin room update
+        io.emit('admin-room-update', { roomId, action: 'join' })
       })
 
       // Leave room
@@ -81,6 +103,9 @@ const ioHandler = (req: NextApiRequest, res: NextApiResponseServerIO) => {
           })
 
           console.log(`${user?.username} left room ${roomId}`)
+
+          // Emit admin room update
+          io.emit('admin-room-update', { roomId, action: 'leave' })
 
           // Clean up empty rooms
           if (room.size === 0) {

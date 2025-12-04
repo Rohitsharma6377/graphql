@@ -3,7 +3,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 
-export type Theme = 'default' | 'romantic' | 'rainy' | 'sunset' | 'ocean'
+export type Theme = 'default' | 'romantic' | 'rainy' | 'sunset' | 'ocean' | 'nightlofi'
 
 interface ThemeState {
   theme: Theme
@@ -57,5 +57,12 @@ export const themes = {
     cardBg: 'bg-white/35',
     primary: 'from-purple-400 to-indigo-400',
     icon: '🌊',
+  },
+  nightlofi: {
+    name: 'Night Lofi Romantic',
+    gradient: 'linear-gradient(135deg, #1a1a2e, #16213e, #0f3460, #533483)',
+    cardBg: 'bg-black/40',
+    primary: 'from-purple-500 to-indigo-600',
+    icon: '🌙',
   },
 }

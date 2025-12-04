@@ -146,6 +146,15 @@ export async function createAnswer(
   roomId: string,
   offer: RTCSessionDescriptionInit
 ): Promise<void> {
+  // Check if we can accept the offer
+  if (pc.signalingState !== 'stable' && pc.signalingState !== 'have-remote-offer') {
+    console.warn('Cannot create answer in state:', pc.signalingState)
+    // If we're in wrong state, reset to stable and try again
+    if (pc.signalingState === 'have-local-offer') {
+      await pc.setLocalDescription({ type: 'rollback' })
+    }
+  }
+  
   await pc.setRemoteDescription(new RTCSessionDescription(offer))
   const answer = await pc.createAnswer()
   await pc.setLocalDescription(answer)
@@ -162,8 +171,13 @@ export async function handleAnswer(
   pc: RTCPeerConnection,
   answer: RTCSessionDescriptionInit
 ): Promise<void> {
-  await pc.setRemoteDescription(new RTCSessionDescription(answer))
-  console.log('Set remote description from answer')
+  // Only set remote description if we're in the right state
+  if (pc.signalingState === 'have-local-offer') {
+    await pc.setRemoteDescription(new RTCSessionDescription(answer))
+    console.log('Set remote description from answer')
+  } else {
+    console.warn('Ignoring answer - wrong signaling state:', pc.signalingState)
+  }
 }
 
 /**
