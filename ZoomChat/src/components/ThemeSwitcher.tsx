@@ -26,30 +26,27 @@ export default function ThemeSwitcher() {
             initial={{ opacity: 0, y: -10, scale: 0.9 }}
             animate={{ opacity: 1, y: 10, scale: 1 }}
             exit={{ opacity: 0, y: -10, scale: 0.9 }}
-            className="absolute right-0 mt-2 p-4 glass-card rounded-2xl shadow-xl min-w-[200px]"
+            className="absolute right-0 mt-2 p-4 bg-white/10 backdrop-blur-xl rounded-2xl shadow-xl min-w-[200px] border border-white/20"
           >
-            <h3 className="font-semibold text-gray-800 mb-3 text-sm">Choose Theme</h3>
+            <h3 className="font-semibold text-white mb-3 text-sm drop-shadow-lg">Choose Theme</h3>
             <div className="space-y-2">
               {(Object.keys(themes) as Theme[]).map((themeKey) => (
                 <motion.button
                   key={themeKey}
                   whileHover={{ scale: 1.05, x: 5 }}
                   whileTap={{ scale: 0.95 }}
-                  onClick={() => {
-                    setTheme(themeKey)
-                    setIsOpen(false)
-                  }}
+                  onClick={() => setTheme(themeKey)}
                   className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl transition-all ${
                     theme === themeKey
-                      ? 'bg-gradient-heartshare shadow-md'
-                      : 'bg-white/40 hover:bg-white/60'
+                      ? 'bg-white/30 backdrop-blur-md shadow-lg border border-white/40'
+                      : 'bg-white/10 backdrop-blur-sm hover:bg-white/20 border border-white/10'
                   }`}
                 >
                   <span className="text-xl">{themes[themeKey].icon}</span>
-                  <span className="text-sm font-medium text-gray-800">
+                  <span className="text-sm font-medium text-white drop-shadow-md">
                     {themes[themeKey].name}
                   </span>
-                  {theme === themeKey && <span className="ml-auto text-green-600">✓</span>}
+                  {theme === themeKey && <span className="ml-auto text-green-400 drop-shadow-lg">✓</span>}
                 </motion.button>
               ))}
             </div>

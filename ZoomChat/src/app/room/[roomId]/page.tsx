@@ -1,12 +1,21 @@
 'use client'
 
 import { useParams, useRouter } from 'next/navigation'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, Fragment } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { useCallStore, useChatStore, useUIStore } from '@/stores'
 import { ablySignaling } from '@/lib/ably-signaling'
 import { Video, VideoOff, Mic, MicOff, PhoneOff, ScreenShare, MessageCircle, Send, X } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { useTheme, themes } from '@/hooks/useTheme'
+import FloatingHearts from '@/components/FloatingHearts'
+import RainyBackground from '@/components/RainyBackground'
+import ThemeSwitcher from '@/components/ThemeSwitcher'
+import SparkleEffect from '@/components/SparkleEffect'
+import RomanticRoses from '@/components/RomanticRoses'
+import SunsetBirds from '@/components/SunsetBirds'
+import OceanWaves from '@/components/OceanWaves'
+import NightLofiBackground from '@/components/animations/NightLofiBackground'
 
 export default function RoomPage() {
   const params = useParams()
@@ -15,6 +24,9 @@ export default function RoomPage() {
   
   // Auth from context
   const { user, isAuthenticated, loading } = useAuth()
+  
+  // Theme
+  const { theme } = useTheme()
   
   // Zustand stores - selective subscriptions
   const {
@@ -52,11 +64,13 @@ export default function RoomPage() {
   
   // Local refs & state
   const localVideoRef = useRef<HTMLVideoElement>(null)
-  const screenVideoRef = useRef<HTMLVideoElement>(null)
+  const localScreenVideoRef = useRef<HTMLVideoElement>(null)
   const remoteVideoRefs = useRef<Map<string, HTMLVideoElement>>(new Map())
+  const remoteScreenRefs = useRef<Map<string, HTMLVideoElement>>(new Map())
   const peerConnectionsRef = useRef<Map<string, RTCPeerConnection>>(new Map())
   const pendingIceCandidatesRef = useRef<Map<string, RTCIceCandidateInit[]>>(new Map())
   const inboundStreamsRef = useRef<Map<string, MediaStream>>(new Map())
+  const screenStreamRefs = useRef<Map<string, MediaStream>>(new Map())
   const [chatInput, setChatInput] = useState('')
   const [isInitialized, setIsInitialized] = useState(false)
   const [showControls, setShowControls] = useState(true)
@@ -89,6 +103,7 @@ export default function RoomPage() {
     console.log('🔗 Creating peer connection for:', userId)
     console.log('🎥 Local stream available:', !!localStream)
     console.log('🎵 Local stream tracks:', localStream?.getTracks().length)
+    console.log('📺 Screen sharing active:', isScreenSharing)
     
     // Clean up existing connection
     const existingPc = peerConnectionsRef.current.get(userId)
@@ -107,19 +122,29 @@ export default function RoomPage() {
       ],
     })
     
-    // Add local tracks to this peer connection
+    // Add camera/mic tracks if available
     if (localStream) {
       const tracks = localStream.getTracks()
-      console.log('🎶 Adding', tracks.length, 'local tracks to peer', userId)
+      console.log(`🎶 Adding ${tracks.length} camera/mic tracks to peer ${userId}`)
       tracks.forEach((track, index) => {
-        console.log(`  ${index + 1}. ${track.kind} track (enabled: ${track.enabled}, readyState: ${track.readyState})`)
+        console.log(`  ${index + 1}. ${track.kind} track (enabled: ${track.enabled}, readyState: ${track.readyState}, label: ${track.label})`)
         pc.addTrack(track, localStream)
       })
     } else {
-      console.warn('⚠️  No local stream available when creating peer connection for:', userId)
+      console.warn('⚠️ No camera/mic stream when creating peer connection for:', userId)
     }
     
-    // Handle incoming tracks - UPGRADED WITH DUAL STREAM SUPPORT
+    // ALSO add screen tracks if screen sharing is active
+    if (isScreenSharing && screenStream) {
+      const screenTracks = screenStream.getTracks()
+      console.log(`📺 ALSO adding ${screenTracks.length} screen tracks to peer ${userId}`)
+      screenTracks.forEach((track, index) => {
+        console.log(`  ${index + 1}. ${track.kind} screen track (label: ${track.label})`)
+        pc.addTrack(track, screenStream)
+      })
+    }
+    
+    // Handle incoming tracks - UPGRADED WITH DUAL STREAM SUPPORT (CAMERA + SCREEN)
     let inboundStream = inboundStreamsRef.current.get(userId) || new MediaStream()
     inboundStreamsRef.current.set(userId, inboundStream)
     
@@ -146,33 +171,58 @@ export default function RoomPage() {
       }
       
       console.log('Stream ID:', stream.id)
-      console.log('Stream tracks:', stream.getTracks().map(t => `${t.kind}:${t.label}`))
+      console.log('Stream tracks:', stream.getTracks().map((t: any) => `${t.kind}:${t.label}`))
       
-      setRemoteStream(userId, stream)
-      console.log('✅ Remote stream set in store for:', userId)
+      // Detect if this is a screen share track by label
+      const isScreenTrack = event.track.label.includes('screen') || 
+                           event.track.label.includes('Screen') ||
+                           event.track.label.includes('monitor') ||
+                           event.track.label.includes('window')
       
-      // Attach to video element with retry logic
-      const attachStream = () => {
-        const videoEl = remoteVideoRefs.current.get(userId)
-        if (videoEl && stream) {
-          videoEl.srcObject = stream
-          console.log('✅ Stream attached to <video> element for:', userId)
-          // Force play with retry
-          const playPromise = videoEl.play()
-          if (playPromise !== undefined) {
-            playPromise.catch(err => {
-              console.log('⚠️ Auto-play prevented, retrying...', err.message)
-              setTimeout(() => videoEl.play().catch(() => {}), 500)
+      if (isScreenTrack && event.track.kind === 'video') {
+        console.log('📺 SCREEN SHARE TRACK detected!')
+        screenStreamRefs.current.set(userId, stream)
+        
+        // Attach to screen video element
+        const attachScreen = () => {
+          const screenEl = remoteScreenRefs.current.get(userId)
+          if (screenEl && stream) {
+            screenEl.srcObject = stream
+            console.log('✅ Screen stream attached to element for:', userId)
+            screenEl.play().catch(err => {
+              console.log('⚠️ Screen auto-play prevented, retrying...', err.message)
+              setTimeout(() => screenEl.play().catch(() => {}), 500)
             })
           }
-        } else {
-          console.warn('⚠️ Video element not found for:', userId)
         }
+        attachScreen()
+        setTimeout(attachScreen, 100)
+      } else {
+        console.log('📹 CAMERA/MIC TRACK detected')
+        setRemoteStream(userId, stream)
+        
+        // Attach to camera video element
+        const attachStream = () => {
+          const videoEl = remoteVideoRefs.current.get(userId)
+          if (videoEl && stream) {
+            videoEl.srcObject = stream
+            console.log('✅ Camera stream attached to element for:', userId)
+            const playPromise = videoEl.play()
+            if (playPromise !== undefined) {
+              playPromise.catch(err => {
+                console.log('⚠️ Auto-play prevented, retrying...', err.message)
+                setTimeout(() => videoEl.play().catch(() => {}), 500)
+              })
+            }
+          } else {
+            console.warn('⚠️ Video element not found for:', userId)
+          }
+        }
+        
+        attachStream()
+        setTimeout(attachStream, 100)
+        setTimeout(attachStream, 500)
       }
-      
-      attachStream()
-      setTimeout(attachStream, 100)
-      setTimeout(attachStream, 500)
       
       console.log('=== END REMOTE TRACK ===\n')
     }
@@ -295,6 +345,27 @@ export default function RoomPage() {
       const updatedParticipants = useCallStore.getState().participants
       console.log('Total participants in store:', updatedParticipants.length)
       console.log('Participants:', updatedParticipants.map(p => p.username))
+      
+      // CRITICAL FIX: Create peer connections to existing participants
+      // This ensures bidirectional connections so screen share works immediately
+      if (updatedParticipants.length > 0) {
+        console.log('\n🔗 Creating peer connections to existing participants...')
+        updatedParticipants.forEach(async (participant: any) => {
+          console.log(`🔗 Creating peer for existing participant: ${participant.id}`)
+          const pc = createPeerConnection(participant.id)
+          
+          // Create and send offer
+          try {
+            const offer = await pc.createOffer()
+            await pc.setLocalDescription(offer)
+            await ablySignaling.sendOffer(roomId, offer, participant.id)
+            console.log(`✅ Sent offer to existing participant: ${participant.id}`)
+          } catch (error) {
+            console.error(`❌ Error sending offer to ${participant.id}:`, error)
+          }
+        })
+      }
+      
       console.log('=== END ROOM-JOINED EVENT ===\n')
     })
     
@@ -578,6 +649,11 @@ export default function RoomPage() {
     }
   }, [user, roomId, isInitialized, loading, isAuthenticated])
   
+  // Apply theme background
+  useEffect(() => {
+    document.body.style.background = themes[theme].gradient
+  }, [theme])
+  
   // Timer
   useEffect(() => {
     if (!isInCall) return
@@ -587,11 +663,19 @@ export default function RoomPage() {
   
   // Video refs
   useEffect(() => {
-    if (localVideoRef.current && localStream) localVideoRef.current.srcObject = localStream
+    if (localVideoRef.current && localStream) {
+      localVideoRef.current.srcObject = localStream
+      console.log('✅ Local camera stream attached to video element')
+    }
   }, [localStream])
+  
   useEffect(() => {
-    if (screenVideoRef.current && screenStream) screenVideoRef.current.srcObject = screenStream
+    if (localScreenVideoRef.current && screenStream) {
+      localScreenVideoRef.current.srcObject = screenStream
+      console.log('✅ Local screen stream attached to video element')
+    }
   }, [screenStream])
+  
   useEffect(() => {
     // remoteStreams is an object, not an array
     Object.entries(remoteStreams || {}).forEach(([userId, stream]) => {
@@ -621,48 +705,28 @@ export default function RoomPage() {
       isScreenSharing
     })
   }
-  // Handle screen sharing - UPGRADED WITH PROPER RENEGOTIATION
+  // Handle screen sharing - UPGRADED TO ADD TRACKS (NOT REPLACE) SO CAMERA STAYS ON
   const handleScreenShare = async () => {
     if (isScreenSharing) {
       console.log('🛑 Stopping screen share')
       stopScreenShare()
       
-      // Restore original camera and mic tracks
-      if (localStream) {
-        console.log('📹 Restoring original camera/mic tracks...')
-        const videoTrack = localStream.getVideoTracks()[0]
-        const audioTrack = localStream.getAudioTracks()[0]
-        
-        const restorePromises: Promise<any>[] = []
+      // Remove screen tracks from all peer connections
+      if (screenStream) {
+        console.log('🗑️ Removing screen tracks from peer connections...')
+        const screenTracks = screenStream.getTracks()
         
         peerConnectionsRef.current.forEach((pc, userId) => {
-          // Restore video track
-          if (videoTrack) {
-            const videoSender = pc.getSenders().find(s => s.track?.kind === 'video')
-            if (videoSender) {
-              console.log(`📹 Restoring camera for ${userId}`)
-              const promise = videoSender.replaceTrack(videoTrack)
-                .then(() => console.log(`✅ Camera restored for ${userId}`))
-                .catch(err => console.error(`❌ Failed to restore video for ${userId}:`, err))
-              restorePromises.push(promise)
+          const senders = pc.getSenders()
+          screenTracks.forEach(track => {
+            const sender = senders.find(s => s.track?.id === track.id)
+            if (sender) {
+              console.log(`🗑️ Removing screen track from ${userId}`)
+              pc.removeTrack(sender)
             }
-          }
-          
-          // Restore audio track
-          if (audioTrack) {
-            const audioSender = pc.getSenders().find(s => s.track?.kind === 'audio')
-            if (audioSender) {
-              console.log(`🎤 Restoring mic for ${userId}`)
-              const promise = audioSender.replaceTrack(audioTrack)
-                .then(() => console.log(`✅ Mic restored for ${userId}`))
-                .catch(err => console.error(`❌ Failed to restore audio for ${userId}:`, err))
-              restorePromises.push(promise)
-            }
-          }
+          })
         })
-        
-        await Promise.all(restorePromises)
-        console.log('✅ Original tracks restored')
+        console.log('✅ Screen tracks removed')
       }
       
       // Broadcast stopped state
@@ -676,9 +740,9 @@ export default function RoomPage() {
       addToast({ message: 'Screen sharing stopped', type: 'info' })
     } else {
       try {
-        console.log('\n🖥️ === STARTING SCREEN SHARE ===')
+        console.log('\n🖥️ === STARTING SCREEN SHARE (MULTI-TRACK MODE) ===')
         
-        // Get screen stream directly
+        // Get screen stream
         const stream = await startScreenShare()
         console.log('📺 Screen stream received:', !!stream)
         console.log('🎥 Stream ID:', stream?.id)
@@ -702,28 +766,24 @@ export default function RoomPage() {
           label: videoTrack.label
         })
         
-        // Handle screen share end (when user clicks "Stop sharing" in browser UI)
+        // Handle screen share end
         videoTrack.onended = async () => {
           console.log('🛑 Screen share ended by user')
           stopScreenShare()
           
-          // Restore camera track
-          if (localStream) {
-            const camTrack = localStream.getVideoTracks()[0]
-            if (camTrack) {
-              const restorePromises: Promise<any>[] = []
-              peerConnectionsRef.current.forEach((pc, userId) => {
-                const videoSender = pc.getSenders().find(s => s.track?.kind === 'video')
-                if (videoSender) {
-                  restorePromises.push(
-                    videoSender.replaceTrack(camTrack)
-                      .then(() => console.log(`✅ Camera restored for ${userId} after screen share end`))
-                  )
-                }
-              })
-              await Promise.all(restorePromises)
-            }
-          }
+          // Remove screen tracks
+          peerConnectionsRef.current.forEach((pc, userId) => {
+            const senders = pc.getSenders()
+            const screenSenders = senders.filter(s => 
+              s.track?.label.includes('screen') || 
+              s.track?.label.includes('Screen') ||
+              s.track?.label.includes('monitor')
+            )
+            screenSenders.forEach(sender => {
+              console.log(`🗑️ Removing screen sender for ${userId}`)
+              pc.removeTrack(sender)
+            })
+          })
           
           await ablySignaling.sendMediaState(roomId, {
             userId: user?.id || user?._id,
@@ -733,78 +793,50 @@ export default function RoomPage() {
           })
         }
         
-        // Replace video track in ALL peer connections
-        console.log('🔄 Replacing video tracks in peer connections...')
-        let replacedCount = 0
-        const replacePromises: Promise<any>[] = []
+        // ADD screen tracks to all peer connections (DON'T REPLACE camera)
+        console.log('➕ Adding screen tracks to peer connections (keeping camera)...')
+        console.log('📊 Total peer connections:', peerConnectionsRef.current.size)
+        console.log('📊 Peer connection IDs:', Array.from(peerConnectionsRef.current.keys()))
+        
+        if (peerConnectionsRef.current.size === 0) {
+          console.warn('⚠️ No peer connections found! Screen will not be shared yet.')
+          console.log('💡 Screen will be shared when other users join.')
+        }
+        
+        let addedCount = 0
+        const addPromises: Promise<any>[] = []
         
         peerConnectionsRef.current.forEach((pc, userId) => {
-          console.log(`\n🔍 Processing peer: ${userId}`)
+          console.log(`\n➕ Adding screen track to peer: ${userId}`)
           const senders = pc.getSenders()
-          console.log(`  Senders: ${senders.length}`)
+          console.log(`  Current senders: ${senders.length}`)
           
-          const videoSender = senders.find(s => s.track?.kind === 'video')
-          
-          if (videoSender) {
-            // Replace existing video track
-            console.log(`✅ Found video sender, replacing track...`)
-            const promise = videoSender.replaceTrack(videoTrack)
-              .then(() => {
-                console.log(`✅ Video track replaced for: ${userId}`)
-                replacedCount++
-              })
-              .catch(err => {
-                console.error(`❌ Failed to replace track for ${userId}:`, err)
-              })
-            replacePromises.push(promise)
-          } else {
-            // No sender exists - add track and trigger renegotiation
-            console.log(`⚠️ No video sender found, adding track...`)
-            const promise = (async () => {
-              try {
-                pc.addTrack(videoTrack, stream)
-                console.log(`✅ Video track added to peer: ${userId}`)
-                
-                // The onnegotiationneeded handler will fire automatically
-                // But we can also manually trigger if needed
-                replacedCount++
-              } catch (err) {
-                console.error(`❌ Failed to add video track for ${userId}:`, err)
-              }
-            })()
-            replacePromises.push(promise)
-          }
+          // Always ADD screen track (never replace camera)
+          const promise = (async () => {
+            try {
+              pc.addTrack(videoTrack, stream)
+              console.log(`✅ Screen track added to peer: ${userId}`)
+              addedCount++
+            } catch (err) {
+              console.error(`❌ Failed to add screen track for ${userId}:`, err)
+            }
+          })()
+          addPromises.push(promise)
         })
         
-        await Promise.all(replacePromises)
-        console.log(`\n✅ Processed video tracks for ${replacedCount} peer connections\n`)
+        await Promise.all(addPromises)
+        console.log(`\n✅ Added screen tracks to ${addedCount} peer connections\n`)
         
         // Handle audio track if present (system audio)
         const audioTracks = stream.getAudioTracks()
         if (audioTracks.length > 0) {
           console.log('🔊 Screen share includes system audio')
           const audioTrack = audioTracks[0]
-          console.log('Audio track:', {
-            id: audioTrack.id,
-            label: audioTrack.label,
-            enabled: audioTrack.enabled
-          })
           
           const audioPromises: Promise<any>[] = []
           peerConnectionsRef.current.forEach((pc, userId) => {
-            const audioSender = pc.getSenders().find(s => s.track?.kind === 'audio')
-            if (audioSender) {
-              console.log(`🔄 Replacing audio track for ${userId}`)
-              audioPromises.push(
-                audioSender.replaceTrack(audioTrack)
-                  .then(() => console.log(`✅ Audio replaced for ${userId}`))
-                  .catch(err => console.error(`❌ Failed to replace audio for ${userId}:`, err))
-              )
-            } else {
-              console.log(`➕ Adding audio track for ${userId}`)
-              pc.addTrack(audioTrack, stream)
-              // onnegotiationneeded will fire
-            }
+            console.log(`➕ Adding system audio for ${userId}`)
+            pc.addTrack(audioTrack, stream)
           })
           await Promise.all(audioPromises)
         } else {
@@ -887,121 +919,258 @@ export default function RoomPage() {
   )
   
   return (
-    <div className="h-screen bg-gray-900 flex">
+    <>
+      {/* Theme Background Animations */}
+      {theme === 'default' && (
+        <>
+          <FloatingHearts />
+          <SparkleEffect />
+        </>
+      )}
+      {theme === 'romantic' && (
+        <>
+          <RomanticRoses />
+          <FloatingHearts />
+          <SparkleEffect />
+        </>
+      )}
+      {theme === 'rainy' && (
+        <>
+          <RainyBackground />
+        </>
+      )}
+      {theme === 'sunset' && (
+        <>
+          <SunsetBirds />
+          <FloatingHearts />
+          <SparkleEffect />
+        </>
+      )}
+      {theme === 'ocean' && (
+        <>
+          <OceanWaves />
+          <FloatingHearts />
+          <SparkleEffect />
+        </>
+      )}
+      {theme === 'nightlofi' && (
+        <>
+          <NightLofiBackground />
+        </>
+      )}
+
+      {/* Theme Switcher */}
+      <ThemeSwitcher />
+
+      {/* Main Room Content */}
+      <div className="h-screen bg-transparent flex relative z-10">
       {/* Main video area */}
       <div className="flex-1 flex flex-col">
         {/* Header */}
         <AnimatePresence>
           {(showControls || (typeof window !== 'undefined' && window.innerWidth >= 768)) && (
-            <motion.div initial={{ y: -100 }} animate={{ y: 0 }} exit={{ y: -100 }} className="bg-gray-800 px-4 md:px-6 py-3 md:py-4 flex items-center justify-between border-b border-gray-700">
+            <motion.div initial={{ y: -100 }} animate={{ y: 0 }} exit={{ y: -100 }} className="bg-gradient-to-r from-pink-500/20 via-purple-500/20 to-blue-500/20 backdrop-blur-xl px-4 md:px-6 py-3 md:py-4 flex items-center justify-between border-b border-white/20 shadow-xl">
               <div className="flex items-center gap-2 md:gap-4">
-                <h1 className="text-white text-sm md:text-xl font-semibold truncate max-w-[150px] md:max-w-none">{roomId.slice(0, 15)}...</h1>
-                <span className="text-gray-400 text-xs md:text-sm">{formatDuration(callDuration)}</span>
-                <span className="text-gray-400 text-xs md:text-sm">{participants.length + 1} participant{participants.length !== 0 ? 's' : ''}</span>
+                <h1 className="text-white text-sm md:text-xl font-bold truncate max-w-[150px] md:max-w-none drop-shadow-lg flex items-center gap-2">
+                  💕 {roomId.slice(0, 15)}...
+                </h1>
+                <span className="text-white/80 text-xs md:text-sm font-medium bg-white/10 px-2 py-1 rounded-full backdrop-blur-sm">⏱️ {formatDuration(callDuration)}</span>
+                <span className="text-white/80 text-xs md:text-sm font-medium bg-white/10 px-2 py-1 rounded-full backdrop-blur-sm">👥 {participants.length + 1}</span>
               </div>
               <div className="flex items-center gap-2">
                 <button 
                   onClick={() => setShowDebug(!showDebug)}
-                  className="p-2 md:p-3 rounded-full bg-gray-700 hover:bg-gray-600 text-white text-xs"
+                  className="p-2 md:p-3 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-sm text-white text-xs border border-white/20 transition-all"
                   title="Toggle Debug"
                 >
                   🐛
                 </button>
                 <button 
                   onClick={() => setIsChatVisible(!isChatVisible)} 
-                  className="relative p-2 md:p-3 rounded-full bg-gray-700 hover:bg-gray-600 text-white"
+                  className="relative p-2 md:p-3 rounded-full bg-gradient-to-r from-pink-500/30 to-purple-500/30 hover:from-pink-500/50 hover:to-purple-500/50 backdrop-blur-sm text-white border border-white/20 transition-all"
                 >
                   <MessageCircle size={18} className="md:w-5 md:h-5" />
-                  {unreadCount > 0 && <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-4 h-4 md:w-5 md:h-5 flex items-center justify-center">{unreadCount}</span>}
+                  {unreadCount > 0 && <span className="absolute -top-1 -right-1 bg-gradient-to-r from-red-500 to-pink-500 text-white text-xs rounded-full w-4 h-4 md:w-5 md:h-5 flex items-center justify-center animate-pulse shadow-lg">{unreadCount}</span>}
                 </button>
               </div>
             </motion.div>
           )}
         </AnimatePresence>
         
-        {/* Video Grid */}
-        <div className="flex-1 p-2 md:p-4 grid grid-cols-1 md:grid-cols-2 gap-2 md:gap-4 overflow-y-auto">
-          {/* Local Video */}
-          <div className="relative bg-black rounded-lg overflow-hidden aspect-video">
+        {/* Video Grid - UPGRADED: Shows camera + screen for each user */}
+        <div className="flex-1 p-2 md:p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 md:gap-4 overflow-y-auto">
+          {/* Local Camera */}
+          <motion.div 
+            initial={{ scale: 0.8, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="relative bg-black/30 backdrop-blur-sm rounded-2xl overflow-hidden aspect-video shadow-2xl border-2 border-transparent bg-gradient-to-r from-pink-500/50 via-purple-500/50 to-blue-500/50 p-[2px]"
+          >
+            <div className="bg-black/40 rounded-2xl overflow-hidden h-full w-full">
             <video ref={localVideoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
-            <div className="absolute bottom-2 md:bottom-4 left-2 md:left-4 bg-black/70 px-2 md:px-3 py-1 rounded-lg text-white text-xs md:text-sm font-semibold">
-              {user.name} (You)
+            <div className="absolute bottom-2 md:bottom-4 left-2 md:left-4 bg-gradient-to-r from-pink-600 via-purple-600 to-blue-600 px-3 md:px-4 py-1.5 rounded-full text-white text-xs md:text-sm font-bold shadow-lg backdrop-blur-sm animate-pulse">
+              💕 {user.name} (You)
             </div>
             {!isCameraOn && (
-              <div className="absolute inset-0 flex items-center justify-center bg-gray-800">
-                <div className="text-center">
+              <div className="absolute inset-0 flex items-center justify-center bg-black/50 backdrop-blur-md">
+                <motion.div 
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  className="text-center"
+                >
                   <VideoOff size={48} className="md:w-16 md:h-16 text-gray-400 mx-auto mb-2" />
-                  <p className="text-gray-400 text-sm md:text-base">Camera Off</p>
-                </div>
+                  <p className="text-gray-400 text-sm md:text-base font-semibold">Camera Off</p>
+                </motion.div>
               </div>
             )}
             {!isMicOn && (
               <div className="absolute top-2 md:top-4 right-2 md:right-4">
-                <div className="bg-red-600 p-1.5 md:p-2 rounded-full">
-                  <MicOff size={14} className="md:w-4 md:h-4 text-white" />
-                </div>
+                <motion.div 
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  className="bg-red-600 p-2 md:p-2.5 rounded-full shadow-lg"
+                >
+                  <MicOff size={14} className="md:w-5 md:h-5 text-white" />
+                </motion.div>
               </div>
             )}
-          </div>
-          
-          {/* Screen Share */}
-          {isScreenSharing && screenStream && (
-            <div className="relative bg-black rounded-lg overflow-hidden aspect-video">
-              <video ref={screenVideoRef} autoPlay playsInline className="w-full h-full object-contain" />
-              <div className="absolute bottom-2 md:bottom-4 left-2 md:left-4 bg-blue-600 px-2 md:px-3 py-1 rounded-lg text-white text-xs md:text-sm font-semibold">
-                📺 Your Screen
-              </div>
             </div>
+          </motion.div>
+          
+          {/* Local Screen Share */}
+          {isScreenSharing && screenStream && (
+            <motion.div 
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.8, opacity: 0 }}
+              className="relative bg-black/30 backdrop-blur-sm rounded-2xl overflow-hidden aspect-video shadow-2xl border-2 border-transparent bg-gradient-to-r from-green-400/50 via-emerald-500/50 to-teal-500/50 p-[2px]"
+            >
+              <div className="bg-black/40 rounded-2xl overflow-hidden h-full w-full">
+              <video ref={localScreenVideoRef} autoPlay playsInline className="w-full h-full object-contain bg-gradient-to-br from-gray-900/50 to-black/50" />
+              <div className="absolute bottom-2 md:bottom-4 left-2 md:left-4 bg-gradient-to-r from-green-500 via-emerald-500 to-teal-500 px-3 md:px-4 py-1.5 rounded-full text-white text-xs md:text-sm font-bold shadow-lg flex items-center gap-2 backdrop-blur-sm">
+                <ScreenShare size={16} />
+                🖥️ Your Screen
+              </div>
+              <div className="absolute top-2 right-2 bg-gradient-to-r from-green-500 to-emerald-500 px-3 py-1 rounded-full text-white text-xs font-bold animate-pulse shadow-lg">
+                ✨ LIVE
+              </div>
+              </div>
+            </motion.div>
           )}
           
-          {/* Remote Participants */}
-          {participants.map((p) => {
+          {/* Remote Participants - Camera AND Screen */}
+          {participants.map((p: any) => {
             const stream = remoteStreams[p.id]
+            const screenStream = screenStreamRefs.current.get(p.id)
+            
             return (
-              <div key={p.id} className="relative bg-black rounded-lg overflow-hidden aspect-video">
-                {stream ? (
-                  <video 
-                    ref={(el) => { 
-                      if (el) {
-                        remoteVideoRefs.current.set(p.id, el)
-                        el.srcObject = stream
-                      }
-                    }} 
-                    autoPlay 
-                    playsInline 
-                    className="w-full h-full object-cover" 
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center bg-gray-800">
-                    <div className="text-center">
-                      <div className="text-6xl mb-4">👤</div>
-                      <p className="text-gray-400">Connecting...</p>
+              <Fragment key={p.id}>
+                {/* Remote User Camera */}
+                <motion.div 
+                  initial={{ scale: 0.8, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  className="relative bg-black/30 backdrop-blur-sm rounded-2xl overflow-hidden aspect-video shadow-2xl border-2 border-transparent bg-gradient-to-r from-purple-500/50 via-pink-500/50 to-blue-500/50 p-[2px]"
+                >
+                  <div className="bg-black/40 rounded-2xl overflow-hidden h-full w-full">
+                  {stream ? (
+                    <video 
+                      ref={(el) => { 
+                        if (el) {
+                          remoteVideoRefs.current.set(p.id, el)
+                          el.srcObject = stream
+                        }
+                      }} 
+                      autoPlay 
+                      playsInline 
+                      className="w-full h-full object-cover" 
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center bg-black/50 backdrop-blur-md">
+                      <motion.div 
+                        animate={{ 
+                          scale: [1, 1.1, 1],
+                          opacity: [0.5, 1, 0.5]
+                        }}
+                        transition={{ 
+                          duration: 2,
+                          repeat: Infinity
+                        }}
+                        className="text-center"
+                      >
+                        <div className="text-6xl mb-4">💞</div>
+                        <div className="flex items-center gap-2">
+                          <div className="w-2 h-2 bg-pink-400 rounded-full animate-bounce"></div>
+                          <p className="text-white/60">Connecting...</p>
+                          <div className="w-2 h-2 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                        </div>
+                      </motion.div>
                     </div>
+                  )}
+                  <div className="absolute bottom-2 md:bottom-4 left-2 md:left-4 bg-gradient-to-r from-purple-600 via-pink-600 to-blue-600 backdrop-blur-sm px-3 md:px-4 py-1.5 rounded-full text-white text-xs md:text-sm font-bold shadow-lg">
+                    💕 {p.username}
                   </div>
-                )}
-                <div className="absolute bottom-2 md:bottom-4 left-2 md:left-4 bg-black/70 px-2 md:px-3 py-1 rounded-lg text-white text-xs md:text-sm font-semibold">
-                  {p.username}
-                </div>
-                {!p.isCameraOn && stream && (
-                  <div className="absolute inset-0 flex items-center justify-center bg-gray-800">
-                    <div className="text-center">
-                      <VideoOff size={48} className="md:w-16 md:h-16 text-gray-400 mx-auto mb-2" />
-                      <p className="text-gray-400 text-sm md:text-base">Camera Off</p>
+                  {!p.isCameraOn && stream && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/70 backdrop-blur-md">
+                      <motion.div 
+                        initial={{ scale: 0 }}
+                        animate={{ scale: 1 }}
+                        className="text-center"
+                      >
+                        <VideoOff size={48} className="md:w-16 md:h-16 text-pink-300/60 mx-auto mb-2" />
+                        <p className="text-white/60 text-sm md:text-base font-semibold">Camera Off</p>
+                      </motion.div>
                     </div>
+                  )}
+                  {!p.isMicOn && (
+                    <div className="absolute top-2 md:top-4 right-2 md:right-4 bg-red-600 p-2 md:p-2.5 rounded-full shadow-lg">
+                      <MicOff size={14} className="md:w-5 md:h-5 text-white" />
+                    </div>
+                  )}
+                  {p.isScreenSharing && (
+                    <div className="absolute top-2 left-2 bg-green-600 px-2 py-1 rounded-full text-white text-xs font-bold flex items-center gap-1">
+                      <ScreenShare size={12} />
+                      Sharing
+                    </div>
+                  )}
                   </div>
+                </motion.div>
+                
+                {/* Remote User Screen Share */}
+                {screenStream && (
+                  <motion.div 
+                    initial={{ scale: 0.8, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    exit={{ scale: 0.8, opacity: 0 }}
+                    className="relative bg-black/30 backdrop-blur-sm rounded-2xl overflow-hidden aspect-video shadow-2xl border-2 border-transparent bg-gradient-to-r from-green-400/50 via-emerald-500/50 to-teal-500/50 p-[2px]"
+                  >
+                    <div className="bg-black/40 rounded-2xl overflow-hidden h-full w-full">
+                    <video 
+                      ref={(el) => {
+                        if (el) {
+                          remoteScreenRefs.current.set(p.id, el)
+                          el.srcObject = screenStream
+                        }
+                      }}
+                      autoPlay 
+                      playsInline 
+                      className="w-full h-full object-contain bg-gray-900" 
+                    />
+                    <div className="absolute bottom-2 md:bottom-4 left-2 md:left-4 bg-gradient-to-r from-green-500 via-emerald-500 to-teal-500 px-3 md:px-4 py-1.5 rounded-full text-white text-xs md:text-sm font-bold shadow-lg flex items-center gap-2 backdrop-blur-sm">
+                      <ScreenShare size={16} />
+                      🖥️ {p.username}'s Screen
+                    </div>
+                    <div className="absolute top-2 right-2 bg-gradient-to-r from-green-500 to-emerald-500 px-3 py-1 rounded-full text-white text-xs font-bold animate-pulse shadow-lg">
+                      ✨ LIVE
+                    </div>
+                    </div>
+                  </motion.div>
                 )}
-                {!p.isMicOn && (
-                  <div className="absolute top-2 md:top-4 right-2 md:right-4 bg-red-600 p-1.5 md:p-2 rounded-full">
-                    <MicOff size={14} className="md:w-4 md:h-4 text-white" />
-                  </div>
-                )}
-              </div>
+              </Fragment>
             )
           })}
           
           {/* Empty state when no participants */}
           {participants.length === 0 && !isScreenSharing && (
-            <div className="relative bg-gray-800 rounded-lg overflow-hidden aspect-video flex items-center justify-center border-2 border-dashed border-gray-600">
+            <div className="relative bg-gradient-to-br from-pink-500/10 via-purple-500/10 to-blue-500/10 backdrop-blur-sm rounded-2xl overflow-hidden aspect-video flex items-center justify-center border-2 border-dashed border-white/20">
               <div className="text-center p-8">
                 <div className="text-6xl mb-4">🔗</div>
                 <h3 className="text-white text-lg font-semibold mb-2">Waiting for others to join</h3>
@@ -1023,17 +1192,17 @@ export default function RoomPage() {
         {/* Bottom Controls */}
         <AnimatePresence>
           {(showControls || (typeof window !== 'undefined' && window.innerWidth >= 768)) && (
-            <motion.div initial={{ y: 100 }} animate={{ y: 0 }} exit={{ y: 100 }} className="bg-gray-800 px-4 md:px-6 py-4 md:py-6 flex items-center justify-center gap-3 md:gap-4 border-t border-gray-700">
-              <button onClick={handleToggleCamera} className={`p-3 md:p-4 rounded-full transition-all touch-manipulation active:scale-95 ${isCameraOn ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-red-600 hover:bg-red-700 text-white'}`}>
+            <motion.div initial={{ y: 100 }} animate={{ y: 0 }} exit={{ y: 100 }} className="bg-gradient-to-r from-pink-500/20 via-purple-500/20 to-blue-500/20 backdrop-blur-xl px-4 md:px-6 py-4 md:py-6 flex items-center justify-center gap-3 md:gap-4 border-t border-white/20 shadow-2xl">
+              <button onClick={handleToggleCamera} className={`p-3 md:p-4 rounded-full transition-all touch-manipulation active:scale-95 shadow-lg border-2 ${isCameraOn ? 'bg-gradient-to-r from-blue-500/30 to-purple-500/30 hover:from-blue-500/50 hover:to-purple-500/50 border-blue-400/30 text-white backdrop-blur-sm' : 'bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600 border-red-400 text-white'}`}>
                 {isCameraOn ? <Video size={20} className="md:w-6 md:h-6" /> : <VideoOff size={20} className="md:w-6 md:h-6" />}
               </button>
-              <button onClick={handleToggleMic} className={`p-3 md:p-4 rounded-full transition-all touch-manipulation active:scale-95 ${isMicOn ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-red-600 hover:bg-red-700 text-white'}`}>
+              <button onClick={handleToggleMic} className={`p-3 md:p-4 rounded-full transition-all touch-manipulation active:scale-95 shadow-lg border-2 ${isMicOn ? 'bg-gradient-to-r from-green-500/30 to-emerald-500/30 hover:from-green-500/50 hover:to-emerald-500/50 border-green-400/30 text-white backdrop-blur-sm' : 'bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600 border-red-400 text-white'}`}>
                 {isMicOn ? <Mic size={20} className="md:w-6 md:h-6" /> : <MicOff size={20} className="md:w-6 md:h-6" />}
               </button>
-              <button onClick={handleScreenShare} className={`p-3 md:p-4 rounded-full transition-all touch-manipulation active:scale-95 ${isScreenSharing ? 'bg-blue-600 hover:bg-blue-700 text-white' : 'bg-gray-700 hover:bg-gray-600 text-white'}`}>
+              <button onClick={handleScreenShare} className={`p-3 md:p-4 rounded-full transition-all touch-manipulation active:scale-95 shadow-lg border-2 ${isScreenSharing ? 'bg-gradient-to-r from-green-500 to-teal-500 hover:from-green-600 hover:to-teal-600 border-green-400 text-white animate-pulse' : 'bg-gradient-to-r from-purple-500/30 to-blue-500/30 hover:from-purple-500/50 hover:to-blue-500/50 border-purple-400/30 text-white backdrop-blur-sm'}`}>
                 <ScreenShare size={20} className="md:w-6 md:h-6" />
               </button>
-              <button onClick={handleLeaveCall} className="p-3 md:p-4 rounded-full bg-red-600 hover:bg-red-700 text-white transition-all ml-2 md:ml-4 touch-manipulation active:scale-95">
+              <button onClick={handleLeaveCall} className="p-3 md:p-4 rounded-full bg-gradient-to-r from-red-500 to-pink-600 hover:from-red-600 hover:to-pink-700 text-white transition-all ml-2 md:ml-4 touch-manipulation active:scale-95 shadow-xl border-2 border-red-400">
                 <PhoneOff size={20} className="md:w-6 md:h-6" />
               </button>
             </motion.div>
@@ -1047,44 +1216,48 @@ export default function RoomPage() {
           initial={{ x: 300 }}
           animate={{ x: 0 }}
           exit={{ x: 300 }}
-          className="w-full md:w-96 bg-gray-800 border-l border-gray-700 flex flex-col fixed md:relative right-0 top-0 h-full z-50"
+          className="w-full md:w-96 bg-black/20 backdrop-blur-lg border-l border-white/10 flex flex-col fixed md:relative right-0 top-0 h-full z-50"
         >
           {/* Chat Header */}
-          <div className="p-4 border-b border-gray-700 flex items-center justify-between">
-            <h3 className="text-white text-lg font-semibold flex items-center gap-2">
-              <MessageCircle size={20} />
+          <div className="p-3 md:p-4 border-b border-white/10 flex items-center justify-between backdrop-blur-sm">
+            <h3 className="text-white text-base md:text-lg font-semibold flex items-center gap-2 drop-shadow-lg">
+              <MessageCircle size={18} className="md:w-5 md:h-5" />
               Live Chat
             </h3>
             <button 
               onClick={() => setIsChatVisible(false)} 
-              className="md:hidden text-gray-400 hover:text-white p-2 touch-manipulation"
+              className="md:hidden text-white/60 hover:text-white p-2 touch-manipulation hover:bg-white/10 rounded-lg transition-all"
             >
-              <X size={24} />
+              <X size={22} />
             </button>
           </div>
           
           {/* Messages */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-3">
+          <div className="flex-1 overflow-y-auto p-3 md:p-4 space-y-2 md:space-y-3 custom-scrollbar">
             {messages.length === 0 && (
-              <div className="text-center text-gray-500 py-8">
+              <div className="text-center text-white/60 py-8">
                 <MessageCircle size={48} className="mx-auto mb-2 opacity-50" />
-                <p>No messages yet</p>
-                <p className="text-sm">Say hi! 👋</p>
+                <p className="text-sm md:text-base">No messages yet</p>
+                <p className="text-xs md:text-sm">Say hi! 👋</p>
               </div>
             )}
             {messages.map((msg) => (
               <div key={msg.id}>
                 {msg.type === 'system' ? (
-                  <div className="text-center text-gray-400 text-sm py-2 bg-gray-900/50 rounded">
+                  <div className="text-center text-white/80 text-xs md:text-sm py-2 bg-white/5 backdrop-blur-sm rounded border border-white/10">
                     {msg.text}
                   </div>
                 ) : (
                   <div className={msg.userId === user?._id ? 'text-right' : 'text-left'}>
-                    <div className="text-xs text-gray-400 mb-1">{msg.username}</div>
-                    <div className={`inline-block px-4 py-2 rounded-lg max-w-xs break-words ${msg.userId === user?._id ? 'bg-blue-600 text-white' : 'bg-gray-700 text-white'}`}>
+                    <div className="text-xs text-white/60 mb-1">{msg.username}</div>
+                    <div className={`inline-block px-3 md:px-4 py-2 rounded-lg max-w-[75%] md:max-w-xs break-words text-sm md:text-base ${
+                      msg.userId === user?._id 
+                        ? 'bg-blue-500/30 backdrop-blur-md text-white border border-blue-400/30 shadow-lg' 
+                        : 'bg-white/10 backdrop-blur-md text-white border border-white/20 shadow-lg'
+                    }`}>
                       {msg.text}
                     </div>
-                    <div className="text-xs text-gray-500 mt-1">
+                    <div className="text-xs text-white/40 mt-1">
                       {new Date(msg.timestamp).toLocaleTimeString()}
                     </div>
                   </div>
@@ -1094,21 +1267,21 @@ export default function RoomPage() {
           </div>
           
           {/* Chat Input */}
-          <form onSubmit={handleSendMessage} className="p-4 border-t border-gray-700">
+          <form onSubmit={handleSendMessage} className="p-3 md:p-4 border-t border-white/10">
             <div className="flex gap-2">
               <input
                 type="text"
                 value={chatInput}
                 onChange={(e) => setChatInput(e.target.value)}
                 placeholder="Type a message..."
-                className="flex-1 px-4 py-3 bg-gray-700 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="flex-1 px-3 md:px-4 py-2 md:py-3 bg-white/5 backdrop-blur-md text-white placeholder-white/40 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400/50 border border-white/10 text-sm md:text-base"
               />
               <button
                 type="submit"
                 disabled={!chatInput.trim()}
-                className="px-4 md:px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all touch-manipulation active:scale-95 flex items-center gap-2"
+                className="px-3 md:px-6 py-2 md:py-3 bg-blue-500/80 backdrop-blur-sm text-white rounded-lg hover:bg-blue-600/80 disabled:opacity-30 disabled:cursor-not-allowed transition-all touch-manipulation active:scale-95 flex items-center gap-2 border border-blue-400/30"
               >
-                <Send size={20} />
+                <Send size={18} className="md:w-5 md:h-5" />
               </button>
             </div>
           </form>
@@ -1152,6 +1325,7 @@ export default function RoomPage() {
         </div>
       )}
     </div>
+    </>
   )
 }
     
