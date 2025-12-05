@@ -25,6 +25,8 @@ const allowedOrigins = [
   'http://localhost:3000',
   'https://graphql-cu7ucqxdx-rohitsharmadev6-4851s-projects.vercel.app',
   'https://graphql-rohitsharmadev6-4851s-projects.vercel.app',
+  'https://graphql-blue.vercel.app',
+  'https://*.vercel.app', // Allow all Vercel preview deployments
   process.env.CLIENT_URL
 ].filter(Boolean);
 
@@ -34,15 +36,26 @@ app.use(cors({
     // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) return callback(null, true);
     
-    if (allowedOrigins.indexOf(origin) === -1) {
-      const msg = 'The CORS policy for this site does not allow access from the specified Origin.';
+    // Check if origin matches any allowed origin (including wildcards)
+    const isAllowed = allowedOrigins.some(allowedOrigin => {
+      if (allowedOrigin.includes('*')) {
+        const regex = new RegExp(allowedOrigin.replace('*', '.*'));
+        return regex.test(origin);
+      }
+      return allowedOrigin === origin;
+    });
+    
+    if (!isAllowed) {
+      const msg = 'The CORS policy for this site does not allow access from the specified Origin: ' + origin;
       return callback(new Error(msg), false);
     }
     return callback(null, true);
   },
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  exposedHeaders: ['Content-Range', 'X-Content-Range'],
+  maxAge: 600 // Cache preflight for 10 minutes
 }));
 
 app.use(express.json());
