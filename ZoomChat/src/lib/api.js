@@ -48,6 +48,12 @@ class ApiClient {
         body: JSON.stringify(credentials)
       }),
 
+    guestLogin: (name) =>
+      this.request('/auth/guest', {
+        method: 'POST',
+        body: JSON.stringify({ name })
+      }),
+
     logout: () =>
       this.request('/auth/logout', { method: 'POST' }),
 
