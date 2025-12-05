@@ -1,10 +1,10 @@
 import { useAuthStore } from '@/stores';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 
 class ApiClient {
   constructor() {
-    this.baseUrl = `${API_URL}/api`;
+    this.baseUrl = API_URL;
   }
 
   async request(endpoint, options = {}) {
