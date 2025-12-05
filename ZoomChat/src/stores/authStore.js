@@ -88,6 +88,7 @@ export const useAuthStore = create(
         set({ loading: true, error: null });
         try {
           const response = await apiClient.auth.guestLogin(name);
+          console.log('Guest login response:', response);
           set({
             user: response.user,
             token: response.token,
@@ -95,8 +96,11 @@ export const useAuthStore = create(
             loading: false,
             error: null
           });
+          console.log('Store updated. Token:', response.token);
+          console.log('Store state:', get());
           return response;
         } catch (error) {
+          console.error('Guest login error:', error);
           set({
             loading: false,
             error: error.message || 'Guest login failed'
@@ -209,7 +213,10 @@ export const useAuthStore = create(
         user: state.user,
         token: state.token,
         isAuthenticated: state.isAuthenticated
-      })
+      }),
+      onRehydrateStorage: () => (state) => {
+        console.log('Auth store rehydrated:', state);
+      }
     }
   )
 );

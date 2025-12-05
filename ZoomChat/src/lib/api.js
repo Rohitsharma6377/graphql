@@ -9,6 +9,7 @@ class ApiClient {
 
   async request(endpoint, options = {}) {
     const { token } = useAuthStore.getState();
+    console.log('API Request:', endpoint, 'Token:', token ? 'Present' : 'Missing');
     
     const config = {
       ...options,
