@@ -47,13 +47,13 @@ export const useAuthStore = create(
         try {
           const response = await apiClient.auth.register(userData);
           set({
-            user: response.data.user,
-            token: response.data.token,
+            user: response.user,
+            token: response.token,
             isAuthenticated: true,
             loading: false,
             error: null
           });
-          return response.data;
+          return response;
         } catch (error) {
           set({
             loading: false,
@@ -68,17 +68,38 @@ export const useAuthStore = create(
         try {
           const response = await apiClient.auth.login(credentials);
           set({
-            user: response.data.user,
-            token: response.data.token,
+            user: response.user,
+            token: response.token,
             isAuthenticated: true,
             loading: false,
             error: null
           });
-          return response.data;
+          return response;
         } catch (error) {
           set({
             loading: false,
             error: error.message || 'Login failed'
+          });
+          throw error;
+        }
+      },
+
+      guestLogin: async (name) => {
+        set({ loading: true, error: null });
+        try {
+          const response = await apiClient.auth.guestLogin(name);
+          set({
+            user: response.user,
+            token: response.token,
+            isAuthenticated: true,
+            loading: false,
+            error: null
+          });
+          return response;
+        } catch (error) {
+          set({
+            loading: false,
+            error: error.message || 'Guest login failed'
           });
           throw error;
         }

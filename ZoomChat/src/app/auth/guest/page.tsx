@@ -4,14 +4,13 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import Link from 'next/link'
-import { useAuth } from '@/contexts/AuthContext'
+import { useAuthStore } from '@/stores'
 
 export default function GuestPage() {
   const router = useRouter()
-  const { loginAsGuest } = useAuth()
+  const { guestLogin, loading: authLoading, error: authError } = useAuthStore()
   const [name, setName] = useState('')
   const [error, setError] = useState('')
-  const [loading, setLoading] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -22,17 +21,12 @@ export default function GuestPage() {
       return
     }
 
-    setLoading(true)
-
-    const result = await loginAsGuest(name)
-
-    if (result.success) {
+    try {
+      await guestLogin(name)
       router.push('/chat')
-    } else {
-      setError(result.error || 'Failed to create guest session')
+    } catch (err) {
+      setError(err.message || 'Failed to create guest session')
     }
-
-    setLoading(false)
   }
 
   return (
@@ -106,10 +100,10 @@ export default function GuestPage() {
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
               type="submit"
-              disabled={loading}
+              disabled={authLoading}
               className="w-full px-6 py-4 rounded-lg bg-gradient-heartshare hover:shadow-lg text-gray-900 font-semibold text-lg transition-all disabled:opacity-50"
             >
-              {loading ? 'Starting...' : 'Start Video Chat'}
+              {authLoading ? 'Starting...' : 'Start Video Chat'}
             </motion.button>
           </form>
 

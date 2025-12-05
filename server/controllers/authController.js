@@ -38,10 +38,8 @@ exports.register = async (req, res) => {
     res.status(201).json({
       success: true,
       message: 'User registered successfully',
-      data: {
-        user,
-        token
-      }
+      user,
+      token
     });
   } catch (error) {
     console.error('Register error:', error);
@@ -110,10 +108,8 @@ exports.login = async (req, res) => {
     res.status(200).json({
       success: true,
       message: 'Login successful',
-      data: {
-        user,
-        token
-      }
+      user,
+      token
     });
   } catch (error) {
     console.error('Login error:', error);
@@ -132,14 +128,19 @@ exports.guestLogin = async (req, res) => {
   try {
     const { name } = req.body;
 
-    // Generate unique guest name if not provided
-    const guestName = name || `Guest_${Math.random().toString(36).substring(2, 8)}`;
+    // Generate unique guest name and email
+    const timestamp = Date.now();
+    const randomId = Math.random().toString(36).substring(2, 8);
+    const guestName = name || `Guest_${randomId}`;
+    const guestEmail = `guest_${timestamp}_${randomId}@guest.heartshare.temp`;
 
-    // Create temporary guest user
+    // Create temporary guest user with a secure random password
+    const guestPassword = `guest_${Math.random().toString(36).substring(2, 15)}${Date.now()}`;
+
     const user = await User.create({
       name: guestName,
-      email: `${guestName.toLowerCase().replace(/\s/g, '')}@guest.temp`,
-      password: Math.random().toString(36),
+      email: guestEmail,
+      password: guestPassword,
       role: 'user',
       isGuest: true
     });
@@ -147,16 +148,14 @@ exports.guestLogin = async (req, res) => {
     // Generate token
     const token = generateToken(user._id);
 
-    // Remove password from output
-    user.password = undefined;
+    // Get user without password
+    const userWithoutPassword = await User.findById(user._id).select('-password');
 
     res.status(200).json({
       success: true,
       message: 'Guest login successful',
-      data: {
-        user,
-        token
-      }
+      user: userWithoutPassword,
+      token
     });
   } catch (error) {
     console.error('Guest login error:', error);
