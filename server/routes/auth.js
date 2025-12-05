@@ -25,6 +25,7 @@ const updatePasswordValidation = [
 // Routes
 router.post('/register', registerValidation, validate, authController.register);
 router.post('/login', loginValidation, validate, authController.login);
+router.post('/guest', authController.guestLogin);
 router.post('/logout', protect, authController.logout);
 router.get('/me', protect, authController.getMe);
 router.put('/update', protect, authController.updateDetails);

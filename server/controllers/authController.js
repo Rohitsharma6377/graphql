@@ -125,6 +125,49 @@ exports.login = async (req, res) => {
   }
 };
 
+// @desc    Guest login
+// @route   POST /api/auth/guest
+// @access  Public
+exports.guestLogin = async (req, res) => {
+  try {
+    const { name } = req.body;
+
+    // Generate unique guest name if not provided
+    const guestName = name || `Guest_${Math.random().toString(36).substring(2, 8)}`;
+
+    // Create temporary guest user
+    const user = await User.create({
+      name: guestName,
+      email: `${guestName.toLowerCase().replace(/\s/g, '')}@guest.temp`,
+      password: Math.random().toString(36),
+      role: 'user',
+      isGuest: true
+    });
+
+    // Generate token
+    const token = generateToken(user._id);
+
+    // Remove password from output
+    user.password = undefined;
+
+    res.status(200).json({
+      success: true,
+      message: 'Guest login successful',
+      data: {
+        user,
+        token
+      }
+    });
+  } catch (error) {
+    console.error('Guest login error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error creating guest session',
+      error: error.message
+    });
+  }
+};
+
 // @desc    Logout user
 // @route   POST /api/auth/logout
 // @access  Private
