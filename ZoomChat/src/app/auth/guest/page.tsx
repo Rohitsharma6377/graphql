@@ -101,14 +101,14 @@ export default function GuestPage() {
               whileTap={{ scale: 0.98 }}
               type="submit"
               disabled={authLoading}
-              className="w-full px-6 py-4 rounded-lg bg-gradient-heartshare hover:shadow-lg text-gray-900 font-semibold text-lg transition-all disabled:opacity-50"
+              className="w-full px-4 md:px-6 py-3 md:py-4 rounded-lg bg-gradient-heartshare hover:shadow-lg text-gray-900 font-semibold text-base md:text-lg transition-all disabled:opacity-50 touch-manipulation"
             >
               {authLoading ? 'Starting...' : 'Start Video Chat'}
             </motion.button>
           </form>
 
           {/* Info */}
-          <div className="mt-6 p-4 bg-yellow-50 rounded-lg border border-yellow-200">
+          <div className="mt-4 md:mt-6 p-3 md:p-4 bg-yellow-50 rounded-lg border border-yellow-200">
             <p className="text-xs text-yellow-800">
               <strong>Guest Mode:</strong> You won't be able to save preferences, earn coins, or access premium features. 
               <Link href="/auth/register" className="underline ml-1">
@@ -118,7 +118,7 @@ export default function GuestPage() {
           </div>
 
           {/* Links */}
-          <div className="mt-6 text-center space-y-2">
+          <div className="mt-4 md:mt-6 text-center space-y-2">
             <Link
               href="/auth/login"
               className="block text-sm text-gray-600 hover:text-gray-900 transition-colors"

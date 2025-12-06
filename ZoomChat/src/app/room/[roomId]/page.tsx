@@ -1252,17 +1252,18 @@ export default function RoomPage() {
             className="w-full md:w-96 bg-black/95 md:bg-black/20 backdrop-blur-lg border-l border-white/10 flex flex-col fixed md:relative right-0 top-0 h-full z-50"
           >
             {/* Chat Header */}
-            <div className="p-3 md:p-4 border-b border-white/10 flex items-center justify-between backdrop-blur-sm bg-gradient-to-r from-blue-500/10 to-purple-500/10">
+            <div className="p-3 md:p-4 border-b border-white/10 flex items-center gap-2 backdrop-blur-sm bg-gradient-to-r from-blue-500/10 to-purple-500/10">
+              {/* Close button on LEFT side - mobile only */}
+              <button 
+                onClick={() => setIsChatVisible(false)} 
+                className="md:hidden text-white/80 hover:text-white p-2 touch-manipulation hover:bg-white/10 rounded-lg transition-all"
+              >
+                <X size={22} />
+              </button>
               <h3 className="text-white text-base md:text-lg font-semibold flex items-center gap-2 drop-shadow-lg">
                 <MessageCircle size={18} className="md:w-5 md:h-5" />
                 Live Chat
               </h3>
-              <button 
-                onClick={() => setIsChatVisible(false)} 
-                className="text-white/80 hover:text-white p-2 touch-manipulation hover:bg-white/10 rounded-lg transition-all"
-              >
-                <X size={22} />
-              </button>
             </div>
           
           {/* Messages */}

@@ -9,13 +9,24 @@ export default function ThemeSwitcher() {
   const [isOpen, setIsOpen] = useState(false)
 
   return (
-    <div className="fixed top-4 right-4 z-50">
+    <motion.div 
+      drag
+      dragMomentum={false}
+      dragElastic={0.1}
+      dragConstraints={{
+        top: 0,
+        left: 0,
+        right: typeof window !== 'undefined' ? window.innerWidth - 100 : 0,
+        bottom: typeof window !== 'undefined' ? window.innerHeight - 100 : 0,
+      }}
+      className="fixed top-4 right-4 z-50 cursor-move"
+    >
       <motion.button
         whileHover={{ scale: 1.1 }}
         whileTap={{ scale: 0.95 }}
         onClick={() => setIsOpen(!isOpen)}
-        className="w-12 h-12 rounded-full glass-card flex items-center justify-center text-2xl shadow-lg"
-        title="Change theme"
+        className="w-12 h-12 rounded-full glass-card flex items-center justify-center text-2xl shadow-lg cursor-pointer"
+        title="Change theme (Drag to move)"
       >
         🎨
       </motion.button>
@@ -53,6 +64,6 @@ export default function ThemeSwitcher() {
           </motion.div>
         )}
       </AnimatePresence>
-    </div>
+    </motion.div>
   )
 }
