@@ -77,16 +77,22 @@ export default function RoomPage() {
   const [isInitialized, setIsInitialized] = useState(false)
   const [showControls, setShowControls] = useState(true)
   const [roomReady, setRoomReady] = useState(false)
-  const [isChatVisible, setIsChatVisible] = useState(true) // Show chat by default
+  const [isChatVisible, setIsChatVisible] = useState(false) // Hide chat on mobile by default
   const [showDebug, setShowDebug] = useState(false) // Debug panel
   
-  // Check authentication first
+  // Responsive chat visibility - show on desktop, hide on mobile
   useEffect(() => {
-    if (!user || !token) {
-      console.log('⚠️ No authentication found, redirecting to login...')
-      router.push('/auth/login')
+    const handleResize = () => {
+      if (window.innerWidth >= 768) {
+        setIsChatVisible(true)
+      } else {
+        setIsChatVisible(false)
+      }
     }
-  }, [user, token, router])
+    handleResize()
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
   
   // Auto-hide controls on mobile
   useEffect(() => {
@@ -983,35 +989,21 @@ export default function RoomPage() {
         <AnimatePresence>
           {(showControls || (typeof window !== 'undefined' && window.innerWidth >= 768)) && (
             <motion.div initial={{ y: -100 }} animate={{ y: 0 }} exit={{ y: -100 }} className="bg-gradient-to-r from-pink-500/20 via-purple-500/20 to-blue-500/20 backdrop-blur-xl px-4 md:px-6 py-3 md:py-4 flex items-center justify-between border-b border-white/20 shadow-xl">
-              <div className="flex items-center gap-2 md:gap-4">
-                <h1 className="text-white text-sm md:text-xl font-bold truncate max-w-[150px] md:max-w-none drop-shadow-lg flex items-center gap-2">
-                  💕 {roomId.slice(0, 15)}...
+              <div className="flex items-center gap-1.5 md:gap-4">
+                <h1 className="text-white text-xs md:text-xl font-bold truncate max-w-[80px] md:max-w-none drop-shadow-lg flex items-center gap-1">
+                  💕 <span className="hidden md:inline">{roomId.slice(0, 15)}...</span><span className="md:hidden">Room</span>
                 </h1>
-                <span className="text-white/80 text-xs md:text-sm font-medium bg-white/10 px-2 py-1 rounded-full backdrop-blur-sm">⏱️ {formatDuration(callDuration)}</span>
-                <span className="text-white/80 text-xs md:text-sm font-medium bg-white/10 px-2 py-1 rounded-full backdrop-blur-sm">👥 {participants.length + 1}</span>
+                <span className="text-white/80 text-[10px] md:text-sm font-medium bg-white/10 px-1.5 md:px-2 py-0.5 md:py-1 rounded-full backdrop-blur-sm">⏱️ {formatDuration(callDuration)}</span>
+                <span className="text-white/80 text-[10px] md:text-sm font-medium bg-white/10 px-1.5 md:px-2 py-0.5 md:py-1 rounded-full backdrop-blur-sm">👥 {participants.length + 1}</span>
               </div>
               <div className="flex items-center gap-2">
-                <button 
-                  onClick={() => setShowDebug(!showDebug)}
-                  className="p-2 md:p-3 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-sm text-white text-xs border border-white/20 transition-all"
-                  title="Toggle Debug"
-                >
-                  🐛
-                </button>
-                <button 
-                  onClick={() => setIsChatVisible(!isChatVisible)} 
-                  className="relative p-2 md:p-3 rounded-full bg-gradient-to-r from-pink-500/30 to-purple-500/30 hover:from-pink-500/50 hover:to-purple-500/50 backdrop-blur-sm text-white border border-white/20 transition-all"
-                >
-                  <MessageCircle size={18} className="md:w-5 md:h-5" />
-                  {unreadCount > 0 && <span className="absolute -top-1 -right-1 bg-gradient-to-r from-red-500 to-pink-500 text-white text-xs rounded-full w-4 h-4 md:w-5 md:h-5 flex items-center justify-center animate-pulse shadow-lg">{unreadCount}</span>}
-                </button>
               </div>
             </motion.div>
           )}
         </AnimatePresence>
         
         {/* Video Grid - UPGRADED: Shows camera + screen for each user */}
-        <div className="flex-1 p-2 md:p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 md:gap-4 overflow-y-auto">
+        <div className="flex-1 p-2 md:p-4 grid grid-cols-1 gap-2 md:gap-4 overflow-y-auto content-start\">
           {/* Local Camera */}
           <motion.div 
             initial={{ scale: 0.8, opacity: 0 }}
@@ -1202,20 +1194,35 @@ export default function RoomPage() {
           )}
         </div>
         
+        {/* Floating Chat Toggle Button - Mobile Only */}
+        {!isChatVisible && (
+          <button
+            onClick={() => setIsChatVisible(true)}
+            className="md:hidden fixed bottom-24 right-4 z-40 p-4 rounded-full bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-2xl hover:scale-110 transition-transform touch-manipulation active:scale-95"
+          >
+            <MessageCircle size={24} />
+            {unreadCount > 0 && (
+              <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-6 h-6 flex items-center justify-center font-bold animate-pulse">
+                {unreadCount}
+              </span>
+            )}
+          </button>
+        )}
+
         {/* Bottom Controls */}
         <AnimatePresence>
           {(showControls || (typeof window !== 'undefined' && window.innerWidth >= 768)) && (
-            <motion.div initial={{ y: 100 }} animate={{ y: 0 }} exit={{ y: 100 }} className="bg-gradient-to-r from-pink-500/20 via-purple-500/20 to-blue-500/20 backdrop-blur-xl px-4 md:px-6 py-4 md:py-6 flex items-center justify-center gap-3 md:gap-4 border-t border-white/20 shadow-2xl">
-              <button onClick={handleToggleCamera} className={`p-3 md:p-4 rounded-full transition-all touch-manipulation active:scale-95 shadow-lg border-2 ${isCameraOn ? 'bg-gradient-to-r from-blue-500/30 to-purple-500/30 hover:from-blue-500/50 hover:to-purple-500/50 border-blue-400/30 text-white backdrop-blur-sm' : 'bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600 border-red-400 text-white'}`}>
-                {isCameraOn ? <Video size={20} className="md:w-6 md:h-6" /> : <VideoOff size={20} className="md:w-6 md:h-6" />}
+            <motion.div initial={{ y: 100 }} animate={{ y: 0 }} exit={{ y: 100 }} className="bg-gradient-to-r from-pink-500/20 via-purple-500/20 to-blue-500/20 backdrop-blur-xl px-4 md:px-6 py-3 md:py-6 flex items-center justify-center gap-2 md:gap-4 border-t border-white/20 shadow-2xl">
+              <button onClick={handleToggleCamera} className={`p-2.5 md:p-4 rounded-full transition-all touch-manipulation active:scale-95 shadow-lg border-2 ${isCameraOn ? 'bg-gradient-to-r from-blue-500/30 to-purple-500/30 hover:from-blue-500/50 hover:to-purple-500/50 border-blue-400/30 text-white backdrop-blur-sm' : 'bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600 border-red-400 text-white'}`}>
+                {isCameraOn ? <Video size={18} className="md:w-6 md:h-6" /> : <VideoOff size={18} className="md:w-6 md:h-6" />}
               </button>
-              <button onClick={handleToggleMic} className={`p-3 md:p-4 rounded-full transition-all touch-manipulation active:scale-95 shadow-lg border-2 ${isMicOn ? 'bg-gradient-to-r from-green-500/30 to-emerald-500/30 hover:from-green-500/50 hover:to-emerald-500/50 border-green-400/30 text-white backdrop-blur-sm' : 'bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600 border-red-400 text-white'}`}>
-                {isMicOn ? <Mic size={20} className="md:w-6 md:h-6" /> : <MicOff size={20} className="md:w-6 md:h-6" />}
+              <button onClick={handleToggleMic} className={`p-2.5 md:p-4 rounded-full transition-all touch-manipulation active:scale-95 shadow-lg border-2 ${isMicOn ? 'bg-gradient-to-r from-green-500/30 to-emerald-500/30 hover:from-green-500/50 hover:to-emerald-500/50 border-green-400/30 text-white backdrop-blur-sm' : 'bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600 border-red-400 text-white'}`}>
+                {isMicOn ? <Mic size={18} className="md:w-6 md:h-6" /> : <MicOff size={18} className="md:w-6 md:h-6" />}
               </button>
-              <button onClick={handleScreenShare} className={`p-3 md:p-4 rounded-full transition-all touch-manipulation active:scale-95 shadow-lg border-2 ${isScreenSharing ? 'bg-gradient-to-r from-green-500 to-teal-500 hover:from-green-600 hover:to-teal-600 border-green-400 text-white animate-pulse' : 'bg-gradient-to-r from-purple-500/30 to-blue-500/30 hover:from-purple-500/50 hover:to-blue-500/50 border-purple-400/30 text-white backdrop-blur-sm'}`}>
-                <ScreenShare size={20} className="md:w-6 md:h-6" />
+              <button onClick={handleScreenShare} className={`hidden md:flex p-2.5 md:p-4 rounded-full transition-all touch-manipulation active:scale-95 shadow-lg border-2 ${isScreenSharing ? 'bg-gradient-to-r from-green-500 to-teal-500 hover:from-green-600 hover:to-teal-600 border-green-400 text-white animate-pulse' : 'bg-gradient-to-r from-purple-500/30 to-blue-500/30 hover:from-purple-500/50 hover:to-blue-500/50 border-purple-400/30 text-white backdrop-blur-sm'}`}>
+                <ScreenShare size={18} className="md:w-6 md:h-6" />
               </button>
-              <button onClick={handleLeaveCall} className="p-3 md:p-4 rounded-full bg-gradient-to-r from-red-500 to-pink-600 hover:from-red-600 hover:to-pink-700 text-white transition-all ml-2 md:ml-4 touch-manipulation active:scale-95 shadow-xl border-2 border-red-400">
+              <button onClick={handleLeaveCall} className="p-2.5 md:p-4 rounded-full bg-gradient-to-r from-red-500 to-pink-600 hover:from-red-600 hover:to-pink-700 text-white transition-all ml-1 md:ml-4 touch-manipulation active:scale-95 shadow-xl border-2 border-red-400">
                 <PhoneOff size={20} className="md:w-6 md:h-6" />
               </button>
             </motion.div>
@@ -1224,26 +1231,39 @@ export default function RoomPage() {
       </div>
       
       {/* Chat Panel - Always visible on desktop, toggle on mobile */}
+      <AnimatePresence>
       {isChatVisible && (
-        <motion.div
-          initial={{ x: 300 }}
-          animate={{ x: 0 }}
-          exit={{ x: 300 }}
-          className="w-full md:w-96 bg-black/20 backdrop-blur-lg border-l border-white/10 flex flex-col fixed md:relative right-0 top-0 h-full z-50"
-        >
-          {/* Chat Header */}
-          <div className="p-3 md:p-4 border-b border-white/10 flex items-center justify-between backdrop-blur-sm">
-            <h3 className="text-white text-base md:text-lg font-semibold flex items-center gap-2 drop-shadow-lg">
-              <MessageCircle size={18} className="md:w-5 md:h-5" />
-              Live Chat
-            </h3>
-            <button 
-              onClick={() => setIsChatVisible(false)} 
-              className="md:hidden text-white/60 hover:text-white p-2 touch-manipulation hover:bg-white/10 rounded-lg transition-all"
-            >
-              <X size={22} />
-            </button>
-          </div>
+        <>
+          {/* Mobile Overlay */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setIsChatVisible(false)}
+            className="md:hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-40"
+          />
+          
+          {/* Chat Panel */}
+          <motion.div
+            initial={{ x: '100%' }}
+            animate={{ x: 0 }}
+            exit={{ x: '100%' }}
+            transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+            className="w-full md:w-96 bg-black/95 md:bg-black/20 backdrop-blur-lg border-l border-white/10 flex flex-col fixed md:relative right-0 top-0 h-full z-50"
+          >
+            {/* Chat Header */}
+            <div className="p-3 md:p-4 border-b border-white/10 flex items-center justify-between backdrop-blur-sm bg-gradient-to-r from-blue-500/10 to-purple-500/10">
+              <h3 className="text-white text-base md:text-lg font-semibold flex items-center gap-2 drop-shadow-lg">
+                <MessageCircle size={18} className="md:w-5 md:h-5" />
+                Live Chat
+              </h3>
+              <button 
+                onClick={() => setIsChatVisible(false)} 
+                className="text-white/80 hover:text-white p-2 touch-manipulation hover:bg-white/10 rounded-lg transition-all"
+              >
+                <X size={22} />
+              </button>
+            </div>
           
           {/* Messages */}
           <div className="flex-1 overflow-y-auto p-3 md:p-4 space-y-2 md:space-y-3 custom-scrollbar">
@@ -1299,7 +1319,9 @@ export default function RoomPage() {
             </div>
           </form>
         </motion.div>
+        </>
       )}
+      </AnimatePresence>
       
       {/* Debug Panel */}
       {showDebug && (

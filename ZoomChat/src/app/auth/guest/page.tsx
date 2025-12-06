@@ -30,22 +30,22 @@ export default function GuestPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-pink-50 via-white to-sky-50 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-pink-50 via-white to-sky-50 flex items-center justify-center p-3 md:p-4">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         className="w-full max-w-md"
       >
         {/* Logo/Title */}
-        <div className="text-center mb-8">
+        <div className="text-center mb-6 md:mb-8">
           <motion.h1
             initial={{ scale: 0.9 }}
             animate={{ scale: 1 }}
-            className="text-5xl font-bold bg-gradient-heartshare bg-clip-text text-transparent mb-2"
+            className="text-4xl md:text-5xl font-bold bg-gradient-heartshare bg-clip-text text-transparent mb-2"
           >
             💕 HeartShare
           </motion.h1>
-          <p className="text-gray-600">Continue as Guest</p>
+          <p className="text-gray-600 text-sm md:text-base">Continue as Guest</p>
         </div>
 
         {/* Guest Form */}
@@ -53,17 +53,17 @@ export default function GuestPage() {
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ delay: 0.1 }}
-          className="glass-card p-8"
+          className="glass-card p-6 md:p-8"
         >
-          <div className="text-center mb-6">
-            <div className="text-6xl mb-4">👤</div>
-            <h2 className="text-xl font-semibold text-gray-900 mb-2">Quick Start</h2>
+          <div className="text-center mb-4 md:mb-6">
+            <div className="text-5xl md:text-6xl mb-3 md:mb-4">👤</div>
+            <h2 className="text-lg md:text-xl font-semibold text-gray-900 mb-2">Quick Start</h2>
             <p className="text-sm text-gray-600">
               No account needed. Just enter your name to get started!
             </p>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form onSubmit={handleSubmit} className="space-y-4 md:space-y-6">
             {/* Name */}
             <div>
               <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
@@ -76,7 +76,7 @@ export default function GuestPage() {
                 onChange={(e) => setName(e.target.value)}
                 required
                 autoFocus
-                className="w-full px-4 py-3 rounded-lg border-2 border-gray-300 focus:border-pink-300 focus:outline-none bg-white transition-all text-center text-lg"
+                className="w-full px-3 md:px-4 py-2.5 md:py-3 rounded-lg border-2 border-gray-300 focus:border-pink-300 focus:outline-none bg-white transition-all text-center text-base md:text-lg"
                 placeholder="Enter your name"
               />
             </div>

@@ -48,22 +48,22 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-pink-50 via-white to-sky-50 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-pink-50 via-white to-sky-50 flex items-center justify-center p-3 md:p-4">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         className="w-full max-w-md"
       >
         {/* Logo/Title */}
-        <div className="text-center mb-8">
+        <div className="text-center mb-6 md:mb-8">
           <motion.h1
             initial={{ scale: 0.9 }}
             animate={{ scale: 1 }}
-            className="text-5xl font-bold bg-gradient-heartshare bg-clip-text text-transparent mb-2"
+            className="text-4xl md:text-5xl font-bold bg-gradient-heartshare bg-clip-text text-transparent mb-2"
           >
             💕 HeartShare
           </motion.h1>
-          <p className="text-gray-600">Create your account</p>
+          <p className="text-gray-600 text-sm md:text-base">Create your account</p>
         </div>
 
         {/* Register Form */}
@@ -71,9 +71,9 @@ export default function RegisterPage() {
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ delay: 0.1 }}
-          className="glass-card p-8"
+          className="glass-card p-6 md:p-8"
         >
-          <form onSubmit={handleSubmit} className="space-y-5">
+          <form onSubmit={handleSubmit} className="space-y-4 md:space-y-5">
             {/* Name */}
             <div>
               <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
@@ -85,7 +85,7 @@ export default function RegisterPage() {
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 required
-                className="w-full px-4 py-3 rounded-lg border-2 border-gray-300 focus:border-pink-300 focus:outline-none bg-white transition-all"
+                className="w-full px-3 md:px-4 py-2.5 md:py-3 rounded-lg border-2 border-gray-300 focus:border-pink-300 focus:outline-none bg-white transition-all text-base"
                 placeholder="John Doe"
               />
             </div>
@@ -101,7 +101,7 @@ export default function RegisterPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="w-full px-4 py-3 rounded-lg border-2 border-gray-300 focus:border-pink-300 focus:outline-none bg-white transition-all"
+                className="w-full px-3 md:px-4 py-2.5 md:py-3 rounded-lg border-2 border-gray-300 focus:border-pink-300 focus:outline-none bg-white transition-all text-base"
                 placeholder="your@email.com"
               />
             </div>
@@ -135,7 +135,7 @@ export default function RegisterPage() {
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 required
                 minLength={6}
-                className="w-full px-4 py-3 rounded-lg border-2 border-gray-300 focus:border-pink-300 focus:outline-none bg-white transition-all"
+                className="w-full px-3 md:px-4 py-2.5 md:py-3 rounded-lg border-2 border-gray-300 focus:border-pink-300 focus:outline-none bg-white transition-all text-base"
                 placeholder="••••••••"
               />
             </div>
@@ -160,14 +160,14 @@ export default function RegisterPage() {
               whileTap={{ scale: 0.98 }}
               type="submit"
               disabled={authLoading}
-              className="w-full px-6 py-4 rounded-lg bg-gradient-heartshare hover:shadow-lg text-gray-900 font-semibold text-lg transition-all disabled:opacity-50"
+              className="w-full px-4 md:px-6 py-3 md:py-4 rounded-lg bg-gradient-heartshare hover:shadow-lg text-gray-900 font-semibold text-base md:text-lg transition-all disabled:opacity-50 touch-manipulation"
             >
               {authLoading ? 'Creating account...' : 'Create Account'}
             </motion.button>
           </form>
 
           {/* Links */}
-          <div className="mt-6 space-y-3">
+          <div className="mt-4 md:mt-6 space-y-3">
             <div className="text-center">
               <Link
                 href="/auth/login"

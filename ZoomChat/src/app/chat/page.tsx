@@ -175,12 +175,12 @@ export default function ChatPage() {
       <motion.header
         initial={{ y: -20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
-        className="glass-card sticky top-0 z-50 mb-8"
+        className="glass-card sticky top-0 z-50 mb-4 md:mb-8"
       >
-        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <h1 className="text-3xl font-bold bg-gradient-heartshare bg-clip-text text-transparent">
-              💕 HeartShare
+        <div className="max-w-7xl mx-auto px-3 md:px-6 py-3 md:py-4 flex items-center justify-between">
+          <div className="flex items-center gap-2 md:gap-4">
+            <h1 className="text-xl md:text-3xl font-bold bg-gradient-heartshare bg-clip-text text-transparent">
+              💕 <span className="hidden sm:inline">HeartShare</span>
             </h1>
             {user.isGuest && (
               <span className="px-3 py-1 bg-yellow-100 text-yellow-800 text-xs font-semibold rounded-full">
@@ -189,50 +189,51 @@ export default function ChatPage() {
             )}
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-1 md:gap-4">
             {/* Admin Panel Button */}
             {user.role === 'admin' && (
               <button
                 onClick={() => router.push('/admin')}
-                className="px-4 py-2 bg-purple-100 text-purple-800 rounded-lg font-medium hover:bg-purple-200 transition-all text-sm"
+                className="hidden md:flex px-3 md:px-4 py-1.5 md:py-2 bg-purple-100 text-purple-800 rounded-lg font-medium hover:bg-purple-200 transition-all text-xs md:text-sm"
               >
-                👑 Admin Panel
+                👑 <span className="hidden lg:inline ml-1">Admin Panel</span>
               </button>
             )}
 
             {/* Coins Display */}
             {!user.isGuest && (
-              <div className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-yellow-100 to-yellow-200 rounded-full">
-                <span className="text-xl">🪙</span>
-                <span className="font-bold text-yellow-900">{user.coins}</span>
+              <div className="hidden sm:flex items-center gap-1 md:gap-2 px-2 md:px-4 py-1 md:py-2 bg-gradient-to-r from-yellow-100 to-yellow-200 rounded-full">
+                <span className="text-sm md:text-xl">🪙</span>
+                <span className="font-bold text-yellow-900 text-xs md:text-base">{user.coins}</span>
               </div>
             )}
 
             {/* User Profile Button */}
             <button
               onClick={() => setShowProfileModal(true)}
-              className="flex items-center gap-3 px-4 py-2 rounded-full bg-white shadow-sm hover:shadow-md transition-all"
+              className="flex items-center gap-1 md:gap-3 px-2 md:px-4 py-1 md:py-2 rounded-full bg-white shadow-sm hover:shadow-md transition-all"
             >
-              <div className="w-10 h-10 rounded-full bg-gradient-heartshare flex items-center justify-center text-white font-bold text-lg">
+              <div className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-gradient-heartshare flex items-center justify-center text-white font-bold text-sm md:text-lg">
                 {user.name[0].toUpperCase()}
               </div>
-              <span className="font-medium text-gray-900">{user.name}</span>
+              <span className="hidden sm:inline font-medium text-gray-900 text-sm md:text-base truncate max-w-[100px] md:max-w-none">{user.name}</span>
             </button>
 
             {/* Logout */}
             <button
               onClick={logoutUser}
-              className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900 transition-colors"
+              className="px-2 md:px-4 py-1 md:py-2 text-xs md:text-sm text-gray-600 hover:text-gray-900 transition-colors"
             >
-              Logout
+              <span className="hidden md:inline">Logout</span>
+              <span className="md:hidden">🚪</span>
             </button>
           </div>
         </div>
       </motion.header>
 
       {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-6 pb-12">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="max-w-7xl mx-auto px-3 md:px-6 pb-6 md:pb-12">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-8">
           {/* Left Column - Actions */}
           <motion.div
             initial={{ x: -20, opacity: 0 }}
@@ -241,26 +242,26 @@ export default function ChatPage() {
             className="lg:col-span-1 space-y-6"
           >
             {/* Create Room Card */}
-            <div className="glass-card p-6">
-              <h2 className="text-2xl font-bold text-gray-900 mb-4">Quick Actions</h2>
+            <div className="glass-card p-4 md:p-6">
+              <h2 className="text-xl md:text-2xl font-bold text-gray-900 mb-3 md:mb-4">Quick Actions</h2>
               
               <button
                 onClick={() => setShowCreateRoom(true)}
-                className="w-full px-6 py-4 rounded-lg bg-gradient-heartshare hover:shadow-lg text-gray-900 font-semibold text-lg transition-all mb-3"
+                className="w-full px-4 md:px-6 py-3 md:py-4 rounded-lg bg-gradient-heartshare hover:shadow-lg text-gray-900 font-semibold text-base md:text-lg transition-all mb-2 md:mb-3 touch-manipulation active:scale-95"
               >
                 🎥 Create Room
               </button>
 
               <button
                 onClick={() => setShowJoinRoom(true)}
-                className="w-full px-6 py-4 rounded-lg bg-purple-500 hover:bg-purple-600 text-white font-semibold text-lg transition-all mb-3"
+                className="w-full px-4 md:px-6 py-3 md:py-4 rounded-lg bg-purple-500 hover:bg-purple-600 text-white font-semibold text-base md:text-lg transition-all mb-2 md:mb-3 touch-manipulation active:scale-95"
               >
                 🔗 Join with Room ID
               </button>
 
               <button
                 onClick={() => router.push('/room/random')}
-                className="w-full px-6 py-4 rounded-lg bg-white border-2 border-gray-300 hover:border-pink-300 text-gray-700 font-medium transition-all"
+                className="w-full px-4 md:px-6 py-3 md:py-4 rounded-lg bg-white border-2 border-gray-300 hover:border-pink-300 text-gray-700 font-medium text-base md:text-lg transition-all touch-manipulation active:scale-95"
               >
                 🎲 Join Random Room
               </button>

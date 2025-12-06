@@ -34,7 +34,7 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-pink-50 via-white to-sky-50 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-pink-50 via-white to-sky-50 flex items-center justify-center p-3 md:p-4">
       <motion.div
         variants={fadeInUp}
         initial="initial"
@@ -42,21 +42,21 @@ export default function LoginPage() {
         className="w-full max-w-md"
       >
         {/* Logo/Title */}
-        <div className="text-center mb-8">
+        <div className="text-center mb-6 md:mb-8">
           <motion.div
             animate={floatingAnimation}
             className="inline-block"
           >
             <motion.h1
               animate={pulseAnimation}
-              className="text-5xl font-bold bg-gradient-heartshare bg-clip-text text-transparent mb-2"
+              className="text-4xl md:text-5xl font-bold bg-gradient-heartshare bg-clip-text text-transparent mb-2"
             >
               💕 HeartShare
             </motion.h1>
           </motion.div>
           <motion.p 
             variants={fadeInUp}
-            className="text-gray-600"
+            className="text-gray-600 text-sm md:text-base"
           >
             Sign in to your account
           </motion.p>
@@ -68,9 +68,9 @@ export default function LoginPage() {
           initial="initial"
           animate="animate"
           transition={{ delay: 0.1 }}
-          className="glass-card p-8"
+          className="glass-card p-6 md:p-8"
         >
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form onSubmit={handleSubmit} className="space-y-4 md:space-y-6">
             {/* Email */}
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
@@ -82,7 +82,7 @@ export default function LoginPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="w-full px-4 py-3 rounded-lg border-2 border-gray-300 focus:border-pink-300 focus:outline-none bg-white transition-all"
+                className="w-full px-3 md:px-4 py-2.5 md:py-3 rounded-lg border-2 border-gray-300 focus:border-pink-300 focus:outline-none bg-white transition-all text-base"
                 placeholder="your@email.com"
               />
             </div>
@@ -98,7 +98,7 @@ export default function LoginPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                className="w-full px-4 py-3 rounded-lg border-2 border-gray-300 focus:border-pink-300 focus:outline-none bg-white transition-all"
+                className="w-full px-3 md:px-4 py-2.5 md:py-3 rounded-lg border-2 border-gray-300 focus:border-pink-300 focus:outline-none bg-white transition-all text-base"
                 placeholder="••••••••"
               />
             </div>
@@ -123,14 +123,14 @@ export default function LoginPage() {
               whileTap={{ scale: 0.98 }}
               type="submit"
               disabled={authLoading}
-              className="w-full px-6 py-4 rounded-lg bg-gradient-heartshare hover:shadow-lg text-gray-900 font-semibold text-lg transition-all disabled:opacity-50"
+              className="w-full px-4 md:px-6 py-3 md:py-4 rounded-lg bg-gradient-heartshare hover:shadow-lg text-gray-900 font-semibold text-base md:text-lg transition-all disabled:opacity-50 touch-manipulation"
             >
               {authLoading ? 'Signing in...' : 'Sign In'}
             </motion.button>
           </form>
 
           {/* Links */}
-          <div className="mt-6 space-y-3">
+          <div className="mt-4 md:mt-6 space-y-3">
             <div className="text-center">
               <Link
                 href="/auth/register"
@@ -153,7 +153,7 @@ export default function LoginPage() {
               <motion.button
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
-                className="w-full px-6 py-3 rounded-lg bg-white border-2 border-gray-300 hover:border-pink-300 text-gray-700 font-medium transition-all"
+                className="w-full px-4 md:px-6 py-2.5 md:py-3 rounded-lg bg-white border-2 border-gray-300 hover:border-pink-300 text-gray-700 font-medium transition-all touch-manipulation"
               >
                 Continue as Guest 👤
               </motion.button>
@@ -166,13 +166,14 @@ export default function LoginPage() {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.3 }}
-          className="mt-8 text-center"
+          className="mt-6 md:mt-8 text-center"
         >
-          <p className="text-sm text-gray-600 mb-4">Why sign up?</p>
-          <div className="flex justify-center gap-4 text-xs text-gray-500">
+          <p className="text-sm text-gray-600 mb-3 md:mb-4">Why sign up?</p>
+          <div className="flex flex-wrap justify-center gap-3 md:gap-4 text-xs text-gray-500">
             <div className="flex items-center gap-1">
               <span>💎</span>
-              <span>Premium Features</span>
+              <span className="hidden sm:inline">Premium Features</span>
+              <span className="sm:hidden">Premium</span>
             </div>
             <div className="flex items-center gap-1">
               <span>🪙</span>
