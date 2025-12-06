@@ -8,8 +8,8 @@ import PermissionRequest from '@/components/PermissionRequest'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'ZoomChat - Professional Video Conferencing',
-  description: 'Blazing-fast video conferencing powered by Zustand + Ably + WebRTC',
+  title: 'HeartShare - Connect Face-to-Face',
+  description: 'Romantic video chat with crystal clear quality. Connect with loved ones through beautiful video calls and real-time messaging.',
 }
 
 export default function RootLayout({

@@ -2,9 +2,11 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { Send, Smile, Paperclip } from 'lucide-react'
 import { Message } from '@/lib/signaling'
 import EmojiPicker from './EmojiPicker'
 import { useTheme } from '@/hooks/useTheme'
+import { Avatar } from './ui/Avatar'
 
 interface ChatWindowProps {
   messages: Message[]
@@ -24,7 +26,9 @@ export default function ChatWindow({
   onSendEmoji,
 }: ChatWindowProps) {
   const [inputValue, setInputValue] = useState('')
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const { theme } = useTheme()
 
@@ -32,37 +36,36 @@ export default function ChatWindow({
   const getBackgroundPattern = () => {
     switch (theme) {
       case 'nightlofi':
-        return 'bg-gradient-to-b from-indigo-900/30 to-purple-900/30'
+        return 'bg-gradient-to-b from-indigo-900/20 to-purple-900/20'
       case 'romantic':
-        return 'bg-gradient-to-b from-rose-100/40 to-pink-100/40'
+        return 'bg-gradient-to-b from-rose-50/50 to-pink-50/50'
       case 'rainy':
-        return 'bg-gradient-to-b from-blue-100/40 to-cyan-100/40'
+        return 'bg-gradient-to-b from-blue-50/50 to-cyan-50/50'
       case 'sunset':
-        return 'bg-gradient-to-b from-orange-100/40 to-pink-100/40'
+        return 'bg-gradient-to-b from-orange-50/50 to-pink-50/50'
       case 'ocean':
-        return 'bg-gradient-to-b from-purple-100/40 to-indigo-100/40'
+        return 'bg-gradient-to-b from-purple-50/50 to-indigo-50/50'
       default:
-        return 'bg-gradient-to-b from-pink-50/40 to-sky-50/40'
+        return 'bg-gradient-to-b from-pink-50/30 to-sky-50/30'
     }
   }
 
-  // Auto-scroll to bottom
+  // Auto-scroll to bottom with smooth behavior
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    const timer = setTimeout(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
+    }, 100)
+    return () => clearTimeout(timer)
   }, [messages])
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setInputValue(e.target.value)
-
-    // Send typing indicator
     onTyping(true)
 
-    // Clear previous timeout
     if (typingTimeoutRef.current) {
       clearTimeout(typingTimeoutRef.current)
     }
 
-    // Stop typing after 2 seconds of inactivity
     typingTimeoutRef.current = setTimeout(() => {
       onTyping(false)
     }, 2000)
@@ -79,197 +82,184 @@ export default function ChatWindow({
       if (typingTimeoutRef.current) {
         clearTimeout(typingTimeoutRef.current)
       }
+      
+      // Refocus input on mobile
+      inputRef.current?.focus()
     }
+  }
+
+  const handleEmojiSelect = (emoji: string) => {
+    onSendEmoji(emoji)
+    setShowEmojiPicker(false)
+  }
+
+  const formatTime = (timestamp: string) => {
+    const date = new Date(timestamp)
+    return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
   }
 
   return (
     <div className="flex flex-col h-full glass-card overflow-hidden relative">
-      {/* Themed Background Pattern */}
+      {/* Themed Background */}
       <div className={`absolute inset-0 ${getBackgroundPattern()} -z-10`} />
       
-      {/* Theme-specific animations in chat */}
-      {theme === 'nightlofi' && (
-        <>
-          {/* Twinkling stars */}
-          {[...Array(15)].map((_, i) => (
-            <motion.div
-              key={`chat-star-${i}`}
-              className="absolute w-1 h-1 bg-white rounded-full"
-              style={{
-                left: `${Math.random() * 100}%`,
-                top: `${Math.random() * 100}%`,
-              }}
-              animate={{
-                opacity: [0.2, 1, 0.2],
-                scale: [0.5, 1, 0.5],
-              }}
-              transition={{
-                duration: 2 + Math.random() * 2,
-                repeat: Infinity,
-                delay: Math.random() * 2,
-              }}
-            />
-          ))}
-          {/* Shooting stars */}
-          {[...Array(2)].map((_, i) => (
-            <motion.div
-              key={`chat-shooting-${i}`}
-              className="absolute w-0.5 h-0.5 bg-white rounded-full"
-              style={{
-                left: `${Math.random() * 100}%`,
-                top: `${Math.random() * 30}%`,
-              }}
-              animate={{
-                opacity: [0, 1, 0],
-                x: [-50, -150],
-                y: [0, 100],
-              }}
-              transition={{
-                duration: 1.5,
-                repeat: Infinity,
-                repeatDelay: 8 + i * 5,
-                ease: "easeOut"
-              }}
-            >
-              <div className="w-10 h-0.5 bg-gradient-to-r from-white to-transparent -rotate-45" />
-            </motion.div>
-          ))}
-        </>
-      )}
-
-      {theme === 'sunset' && (
-        <>
-          {/* Flying birds */}
-          {[...Array(3)].map((_, i) => (
-            <motion.div
-              key={`chat-bird-${i}`}
-              className="absolute text-orange-800/30"
-              style={{
-                fontSize: '1rem',
-                left: -20,
-                top: `${20 + i * 25}%`,
-              }}
-              animate={{
-                x: [0, 400],
-                y: [0, Math.sin(i) * 20],
-              }}
-              transition={{
-                duration: 15 + i * 3,
-                repeat: Infinity,
-                ease: "linear"
-              }}
-            >
-              🦅
-            </motion.div>
-          ))}
-        </>
-      )}
-      
-      {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
-        <AnimatePresence>
+      {/* Messages Container */}
+      <div className="flex-1 overflow-y-auto p-3 md:p-4 space-y-3 custom-scrollbar">
+        <AnimatePresence mode="popLayout">
           {messages.map((message, index) => {
-            const isOwn = message.from === username || message.username === username
+            const isOwnMessage = message.username === username
+            
             return (
               <motion.div
-                key={message.id || index}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
+                key={`${message.timestamp}-${index}`}
+                initial={{ opacity: 0, y: 20, scale: 0.9 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.9 }}
-                transition={{ duration: 0.2 }}
-                className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`}
+                transition={{ 
+                  type: "spring",
+                  stiffness: 500,
+                  damping: 30
+                }}
+                className={`flex items-end gap-2 ${isOwnMessage ? 'flex-row-reverse' : 'flex-row'}`}
               >
-                <div
-                  className={`max-w-[70%] rounded-2xl px-4 py-2 shadow-lg ${
-                    isOwn
-                      ? 'bg-gradient-heartshare text-gray-800'
-                      : theme === 'nightlofi' 
-                        ? 'bg-indigo-900/60 text-white backdrop-blur-sm' 
-                        : 'bg-white/80 text-gray-800 backdrop-blur-sm'
-                  }`}
-                >
-                  {!isOwn && (
-                    <div className="text-xs font-semibold mb-1 opacity-70">
+                {/* Avatar */}
+                {!isOwnMessage && (
+                  <Avatar 
+                    name={message.username} 
+                    size="sm" 
+                    className="flex-shrink-0"
+                  />
+                )}
+                
+                {/* Message Bubble */}
+                <div className={`flex flex-col max-w-[75%] sm:max-w-[60%] ${isOwnMessage ? 'items-end' : 'items-start'}`}>
+                  {/* Username (only for others) */}
+                  {!isOwnMessage && (
+                    <span className="text-xs font-medium text-gray-600 mb-1 px-2">
                       {message.username}
-                    </div>
+                    </span>
                   )}
-                  <div className="text-sm">{message.text}</div>
-                  <div className="text-xs opacity-60 mt-1">
-                    {new Date(message.timestamp).toLocaleTimeString([], {
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })}
-                    {isOwn && message.read && ' • Read'}
-                  </div>
+                  
+                  {/* Message Content */}
+                  <motion.div
+                    whileHover={{ scale: 1.02 }}
+                    className={`px-4 py-2.5 rounded-2xl shadow-md break-words ${
+                      isOwnMessage
+                        ? 'bg-gradient-to-r from-pink-400 to-sky-400 text-white rounded-br-sm'
+                        : 'bg-white/90 text-gray-800 rounded-bl-sm'
+                    }`}
+                  >
+                    <p className="text-sm md:text-base leading-relaxed">{message.text}</p>
+                  </motion.div>
+                  
+                  {/* Timestamp */}
+                  <span className="text-xs text-gray-500 mt-1 px-2">
+                    {formatTime(message.timestamp)}
+                  </span>
                 </div>
               </motion.div>
             )
           })}
         </AnimatePresence>
 
-        {/* Typing indicator */}
-        {typingUser && (
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0 }}
-            className="flex justify-start"
-          >
-            <div className={`rounded-2xl px-4 py-2 shadow-lg ${
-              theme === 'nightlofi' 
-                ? 'bg-indigo-900/60 text-white backdrop-blur-sm' 
-                : 'bg-white/80 backdrop-blur-sm'
-            }`}>
-              <div className="text-xs font-semibold mb-1 opacity-70">{typingUser}</div>
-              <div className="flex gap-1">
-                <motion.span
-                  className="w-2 h-2 bg-gray-600 rounded-full"
-                  animate={{ y: [0, -5, 0] }}
-                  transition={{ duration: 0.6, repeat: Infinity, delay: 0 }}
-                />
-                <motion.span
-                  className="w-2 h-2 bg-gray-600 rounded-full"
-                  animate={{ y: [0, -5, 0] }}
-                  transition={{ duration: 0.6, repeat: Infinity, delay: 0.2 }}
-                />
-                <motion.span
-                  className="w-2 h-2 bg-gray-600 rounded-full"
-                  animate={{ y: [0, -5, 0] }}
-                  transition={{ duration: 0.6, repeat: Infinity, delay: 0.4 }}
-                />
+        {/* Typing Indicator */}
+        <AnimatePresence>
+          {typingUser && typingUser !== username && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="flex items-center gap-2"
+            >
+              <Avatar name={typingUser} size="sm" />
+              <div className="px-4 py-2.5 bg-white/90 rounded-2xl rounded-bl-sm shadow-md">
+                <div className="flex gap-1">
+                  {[0, 1, 2].map((i) => (
+                    <motion.div
+                      key={i}
+                      className="w-2 h-2 bg-gray-400 rounded-full"
+                      animate={{ y: [0, -5, 0] }}
+                      transition={{
+                        duration: 0.6,
+                        repeat: Infinity,
+                        delay: i * 0.1,
+                      }}
+                    />
+                  ))}
+                </div>
               </div>
-            </div>
-          </motion.div>
-        )}
+            </motion.div>
+          )}
+        </AnimatePresence>
 
+        {/* Scroll anchor */}
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Input */}
-      <form onSubmit={handleSubmit} className="p-3 sm:p-4 border-t border-white/30 bg-white/20 backdrop-blur-sm">
-        <div className="flex gap-2 items-center">
-          {/* Emoji Picker */}
-          <EmojiPicker onEmojiSelect={onSendEmoji} />
-          
-          <input
-            type="text"
-            value={inputValue}
-            onChange={handleInputChange}
-            placeholder="Type a message..."
-            className="flex-1 px-3 sm:px-4 py-2 sm:py-2.5 rounded-full bg-white/70 focus:bg-white/90 outline-none focus:ring-2 focus:ring-pink-300 transition-all text-gray-800 placeholder-gray-500 text-sm sm:text-base"
-          />
-          <motion.button
-            type="submit"
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            disabled={!inputValue.trim()}
-            className="px-4 sm:px-6 py-2 sm:py-2.5 rounded-full bg-gradient-to-r from-pink-400 to-purple-400 hover:from-pink-500 hover:to-purple-500 text-white font-semibold transition-all shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base flex-shrink-0"
+      {/* Input Area */}
+      <div className="p-3 md:p-4 bg-white/50 backdrop-blur-sm border-t border-white/30">
+        <form onSubmit={handleSubmit} className="flex items-end gap-2">
+          {/* Emoji Button */}
+          <button
+            type="button"
+            onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+            className="flex-shrink-0 p-2.5 rounded-xl bg-white/70 hover:bg-white transition-all active:scale-95 touch-manipulation"
           >
-            <span className="hidden sm:inline">Send</span>
-            <span className="sm:hidden">➤</span>
-          </motion.button>
-        </div>
-      </form>
+            <Smile className="w-5 h-5 text-gray-600" />
+          </button>
+
+          {/* Input Field */}
+          <div className="flex-1 relative">
+            <input
+              ref={inputRef}
+              type="text"
+              value={inputValue}
+              onChange={handleInputChange}
+              placeholder="Type a message..."
+              className="w-full px-4 py-2.5 pr-10 text-base bg-white/70 border-2 border-white/50 
+                       rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-300 focus:border-pink-300
+                       transition-all placeholder:text-gray-400 touch-manipulation"
+              maxLength={500}
+            />
+            
+            {/* Character count on mobile */}
+            {inputValue.length > 400 && (
+              <span className="absolute right-3 bottom-3 text-xs text-gray-400">
+                {inputValue.length}/500
+              </span>
+            )}
+          </div>
+
+          {/* Send Button */}
+          <button
+            type="submit"
+            disabled={!inputValue.trim()}
+            className="flex-shrink-0 p-2.5 rounded-xl bg-gradient-to-r from-pink-400 to-sky-400 
+                     hover:from-pink-500 hover:to-sky-500 text-white shadow-md hover:shadow-lg
+                     transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed
+                     touch-manipulation min-w-[44px] min-h-[44px] flex items-center justify-center"
+          >
+            <Send className="w-5 h-5" />
+          </button>
+        </form>
+
+        {/* Emoji Picker Popup */}
+        <AnimatePresence>
+          {showEmojiPicker && (
+            <motion.div
+              initial={{ opacity: 0, y: 10, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 10, scale: 0.95 }}
+              className="absolute bottom-full left-0 right-0 mb-2 mx-3 md:mx-4"
+            >
+              <EmojiPicker
+                onEmojiSelect={handleEmojiSelect}
+                onClose={() => setShowEmojiPicker(false)}
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
     </div>
   )
 }

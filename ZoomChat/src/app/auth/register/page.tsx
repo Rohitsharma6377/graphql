@@ -5,6 +5,10 @@ import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import Link from 'next/link'
 import { useAuthStore } from '@/stores'
+import { Mail, Lock, User, Sparkles, Heart, UserPlus } from 'lucide-react'
+import { Button } from '@/components/ui/Button'
+import { Input } from '@/components/ui/Input'
+import { Card } from '@/components/ui/Card'
 
 export default function RegisterPage() {
   const router = useRouter()
@@ -48,97 +52,87 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-pink-50 via-white to-sky-50 flex items-center justify-center p-3 md:p-4">
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="w-full max-w-md"
-      >
+    <div className="min-h-[100dvh] flex items-center justify-center p-4 sm:p-6 lg:p-8">
+      <div className="w-full max-w-md fade-in">
         {/* Logo/Title */}
-        <div className="text-center mb-6 md:mb-8">
-          <motion.h1
-            initial={{ scale: 0.9 }}
-            animate={{ scale: 1 }}
-            className="text-4xl md:text-5xl font-bold bg-gradient-heartshare bg-clip-text text-transparent mb-2"
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+          className="text-center mb-6 md:mb-8"
+        >
+          <motion.div
+            animate={{ 
+              y: [0, -10, 0],
+              rotate: [0, 10, -10, 0]
+            }}
+            transition={{ 
+              duration: 4,
+              repeat: Infinity,
+              ease: "easeInOut"
+            }}
+            className="inline-block mb-3"
           >
-            💕 HeartShare
-          </motion.h1>
-          <p className="text-gray-600 text-sm md:text-base">Create your account</p>
-        </div>
+            <div className="text-6xl md:text-7xl">💕</div>
+          </motion.div>
+          
+          <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-gradient mb-2">
+            Join HeartShare
+          </h1>
+          
+          <p className="text-gray-600 text-sm md:text-base flex items-center justify-center gap-2">
+            <Sparkles className="w-4 h-4 text-pink-400" />
+            Create your account to get started
+            <Sparkles className="w-4 h-4 text-sky-400" />
+          </p>
+        </motion.div>
 
         {/* Register Form */}
-        <motion.div
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ delay: 0.1 }}
-          className="glass-card p-6 md:p-8"
-        >
-          <form onSubmit={handleSubmit} className="space-y-4 md:space-y-5">
+        <Card padding="lg" gradient className="slide-up">
+          <form onSubmit={handleSubmit} className="space-y-4">
             {/* Name */}
-            <div>
-              <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
-                Full Name
-              </label>
-              <input
-                id="name"
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                required
-                className="w-full px-3 md:px-4 py-2.5 md:py-3 rounded-lg border-2 border-gray-300 focus:border-pink-300 focus:outline-none bg-white transition-all text-base"
-                placeholder="John Doe"
-              />
-            </div>
+            <Input
+              type="text"
+              label="Full Name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              required
+              placeholder="John Doe"
+              leftIcon={<User className="w-5 h-5" />}
+            />
 
             {/* Email */}
-            <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
-                Email Address
-              </label>
-              <input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                className="w-full px-3 md:px-4 py-2.5 md:py-3 rounded-lg border-2 border-gray-300 focus:border-pink-300 focus:outline-none bg-white transition-all text-base"
-                placeholder="your@email.com"
-              />
-            </div>
+            <Input
+              type="email"
+              label="Email Address"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              placeholder="your@email.com"
+              leftIcon={<Mail className="w-5 h-5" />}
+            />
 
             {/* Password */}
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
-                Password
-              </label>
-              <input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                minLength={6}
-                className="w-full px-4 py-3 rounded-lg border-2 border-gray-300 focus:border-pink-300 focus:outline-none bg-white transition-all"
-                placeholder="••••••••"
-              />
-            </div>
+            <Input
+              type="password"
+              label="Password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              placeholder="••••••••"
+              leftIcon={<Lock className="w-5 h-5" />}
+            />
 
             {/* Confirm Password */}
-            <div>
-              <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-2">
-                Confirm Password
-              </label>
-              <input
-                id="confirmPassword"
-                type="password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                required
-                minLength={6}
-                className="w-full px-3 md:px-4 py-2.5 md:py-3 rounded-lg border-2 border-gray-300 focus:border-pink-300 focus:outline-none bg-white transition-all text-base"
-                placeholder="••••••••"
-              />
-            </div>
+            <Input
+              type="password"
+              label="Confirm Password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              required
+              placeholder="••••••••"
+              leftIcon={<Lock className="w-5 h-5" />}
+            />
 
             {/* Error Message */}
             <AnimatePresence>
@@ -147,33 +141,40 @@ export default function RegisterPage() {
                   initial={{ opacity: 0, y: -10 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0 }}
-                  className="p-3 rounded-lg bg-red-100 text-red-800 text-sm"
+                  className="p-4 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm"
                 >
-                  {validationError || authError}
+                  <div className="flex items-center gap-2">
+                    <svg className="w-5 h-5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                    </svg>
+                    {validationError || authError}
+                  </div>
                 </motion.div>
               )}
             </AnimatePresence>
 
             {/* Register Button */}
-            <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
+            <Button
               type="submit"
-              disabled={authLoading}
-              className="w-full px-4 md:px-6 py-3 md:py-4 rounded-lg bg-gradient-heartshare hover:shadow-lg text-gray-900 font-semibold text-base md:text-lg transition-all disabled:opacity-50 touch-manipulation"
+              variant="primary"
+              size="lg"
+              fullWidth
+              loading={authLoading}
             >
-              {authLoading ? 'Creating account...' : 'Create Account'}
-            </motion.button>
+              <UserPlus className="w-5 h-5 mr-2" />
+              Create Account
+            </Button>
           </form>
 
           {/* Links */}
-          <div className="mt-4 md:mt-6 space-y-3">
+          <div className="mt-6 space-y-4">
             <div className="text-center">
               <Link
                 href="/auth/login"
-                className="text-sm text-gray-600 hover:text-gray-900 transition-colors"
+                className="text-sm md:text-base text-gray-600 hover:text-gray-900 transition-colors"
               >
-                Already have an account? <span className="font-semibold">Sign In</span>
+                Already have an account?{' '}
+                <span className="font-semibold text-gradient">Sign In</span>
               </Link>
             </div>
 
@@ -182,50 +183,50 @@ export default function RegisterPage() {
                 <div className="w-full border-t border-gray-300"></div>
               </div>
               <div className="relative flex justify-center text-sm">
-                <span className="px-2 bg-white text-gray-500">Or</span>
+                <span className="px-4 bg-white/90 text-gray-500">Or</span>
               </div>
             </div>
 
-            <Link href="/auth/guest">
-              <motion.button
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                className="w-full px-6 py-3 rounded-lg bg-white border-2 border-gray-300 hover:border-pink-300 text-gray-700 font-medium transition-all"
-              >
-                Continue as Guest 👤
-              </motion.button>
+            <Link href="/auth/guest" className="block">
+              <Button variant="outline" size="lg" fullWidth>
+                <span className="text-2xl mr-2">👤</span>
+                Continue as Guest
+              </Button>
             </Link>
           </div>
-        </motion.div>
+        </Card>
 
         {/* Benefits */}
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          transition={{ delay: 0.3 }}
-          className="mt-8 glass-card p-6"
+          transition={{ delay: 0.4 }}
+          className="mt-6 md:mt-8"
         >
-          <h3 className="text-sm font-semibold text-gray-900 mb-3">Account Benefits:</h3>
-          <ul className="space-y-2 text-sm text-gray-600">
-            <li className="flex items-center gap-2">
-              <span className="text-lg">🎁</span>
-              <span>Get 100 free coins on signup</span>
-            </li>
-            <li className="flex items-center gap-2">
-              <span className="text-lg">💎</span>
-              <span>Unlock premium features</span>
-            </li>
-            <li className="flex items-center gap-2">
-              <span className="text-lg">🎨</span>
-              <span>Access custom themes and emojis</span>
-            </li>
-            <li className="flex items-center gap-2">
-              <span className="text-lg">📊</span>
-              <span>Track your call history</span>
-            </li>
-          </ul>
+          <div className="grid grid-cols-2 gap-3 md:gap-4">
+            <div className="glass-card p-3 md:p-4 text-center">
+              <div className="text-2xl md:text-3xl mb-1">🪙</div>
+              <p className="text-xs md:text-sm font-medium text-gray-700">100 Free</p>
+              <p className="text-xs text-gray-500 hidden sm:block">Coins</p>
+            </div>
+            <div className="glass-card p-3 md:p-4 text-center">
+              <div className="text-2xl md:text-3xl mb-1">💎</div>
+              <p className="text-xs md:text-sm font-medium text-gray-700">Premium</p>
+              <p className="text-xs text-gray-500 hidden sm:block">Features</p>
+            </div>
+            <div className="glass-card p-3 md:p-4 text-center">
+              <div className="text-2xl md:text-3xl mb-1">🎨</div>
+              <p className="text-xs md:text-sm font-medium text-gray-700">Custom</p>
+              <p className="text-xs text-gray-500 hidden sm:block">Themes</p>
+            </div>
+            <div className="glass-card p-3 md:p-4 text-center">
+              <div className="text-2xl md:text-3xl mb-1">📊</div>
+              <p className="text-xs md:text-sm font-medium text-gray-700">History</p>
+              <p className="text-xs text-gray-500 hidden sm:block">Tracking</p>
+            </div>
+          </div>
         </motion.div>
-      </motion.div>
+      </div>
     </div>
   )
 }

@@ -1,7 +1,8 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion, AnimatePresence, Reorder } from 'framer-motion'
+import { Maximize2, Minimize2, User, Monitor, Mic, MicOff } from 'lucide-react'
 
 interface VideoPanelProps {
   localStream: MediaStream | null
@@ -9,8 +10,10 @@ interface VideoPanelProps {
   screenStream: MediaStream | null
   isCameraOn: boolean
   isScreenSharing: boolean
+  isMicOn: boolean
   username: string
   remoteUsername?: string
+  participants?: Array<{ id: string; username: string; stream?: MediaStream }>
 }
 
 export default function VideoPanel({
@@ -19,345 +22,289 @@ export default function VideoPanel({
   screenStream,
   isCameraOn,
   isScreenSharing,
+  isMicOn,
   username,
   remoteUsername = 'Remote User',
+  participants = [],
 }: VideoPanelProps) {
   const localVideoRef = useRef<HTMLVideoElement>(null)
   const remoteVideoRef = useRef<HTMLVideoElement>(null)
-  const localScreenRef = useRef<HTMLVideoElement>(null)
-  const remoteScreenRef = useRef<HTMLVideoElement>(null)
-  const [expandedBox, setExpandedBox] = useState<string | null>(null)
-  const [remoteIsScreenSharing, setRemoteIsScreenSharing] = useState(false)
-  
-  // Check if local stream has active video track
-  const hasLocalVideo = localStream && localStream.getVideoTracks().some(track => track.enabled && track.readyState === 'live')
-  // Check if remote stream has active video track
-  const hasRemoteVideo = remoteStream && remoteStream.getVideoTracks().some(track => track.enabled && track.readyState === 'live')
+  const screenVideoRef = useRef<HTMLVideoElement>(null)
+  const [isFullscreen, setIsFullscreen] = useState(false)
+  const [localPosition, setLocalPosition] = useState({ x: 0, y: 0 })
 
-  // Set up local video
+  // Check if streams have active video
+  const hasLocalVideo = localStream?.getVideoTracks().some(t => t.enabled && t.readyState === 'live')
+  const hasRemoteVideo = remoteStream?.getVideoTracks().some(t => t.enabled && t.readyState === 'live')
+  const hasScreenShare = screenStream?.getVideoTracks().some(t => t.enabled && t.readyState === 'live')
+
+  // Setup local video
   useEffect(() => {
     if (localVideoRef.current && localStream) {
-      const videoTracks = localStream.getVideoTracks()
-      const audioTracks = localStream.getAudioTracks()
-      console.log('🎥 Setting local video stream')
-      console.log('  Video tracks:', videoTracks.length, videoTracks.map(t => `${t.label} (${t.enabled ? 'enabled' : 'disabled'}, ${t.readyState})`)  )
-      console.log('  Audio tracks:', audioTracks.length, audioTracks.map(t => `${t.label} (${t.enabled ? 'enabled' : 'disabled'}, ${t.readyState})`))
+      const video = localVideoRef.current
+      video.srcObject = localStream
+      video.muted = true
+      video.playsInline = true
+      video.autoplay = true
       
-      const videoElement = localVideoRef.current
-      videoElement.srcObject = localStream
-      videoElement.muted = true
-      
-      // Mobile Safari fixes
-      videoElement.setAttribute('playsinline', '')
-      videoElement.setAttribute('autoplay', '')
-      videoElement.playsInline = true
-      videoElement.autoplay = true
-      videoElement.disablePictureInPicture = true
-      
-      // Force play and handle errors
-      const playPromise = videoElement.play()
-      if (playPromise !== undefined) {
-        playPromise
-          .then(() => {
-            console.log('✅ Local video playing')
-          })
-          .catch(err => {
-            console.log('⚠️ Local video play error (trying again):', err.name)
-            // Retry once
-            setTimeout(() => {
-              videoElement.play().catch(e => console.log('❌ Local video play failed:', e))
-            }, 100)
-          })
-      }
+      video.play().catch(err => {
+        console.error('Local video play error:', err)
+        setTimeout(() => video.play().catch(() => {}), 100)
+      })
     }
   }, [localStream])
 
-  // Set up remote video and detect screen share
+  // Setup remote video
   useEffect(() => {
     if (remoteVideoRef.current && remoteStream) {
-      const videoTracks = remoteStream.getVideoTracks()
-      const audioTracks = remoteStream.getAudioTracks()
-      console.log('🎥 Setting remote video stream')
-      console.log('  Video tracks:', videoTracks.length, videoTracks.map(t => `${t.label} (${t.enabled ? 'enabled' : 'disabled'}, ${t.readyState})`))
-      console.log('  Audio tracks:', audioTracks.length, audioTracks.map(t => `${t.label} (${t.enabled ? 'enabled' : 'disabled'}, ${t.readyState})`))
+      const video = remoteVideoRef.current
+      video.srcObject = remoteStream
+      video.playsInline = true
+      video.autoplay = true
       
-      const videoElement = remoteVideoRef.current
-      videoElement.srcObject = remoteStream
-      
-      // Mobile Safari fixes - CRITICAL for remote video
-      videoElement.setAttribute('playsinline', '')
-      videoElement.setAttribute('autoplay', '')
-      videoElement.playsInline = true
-      videoElement.autoplay = true
-      videoElement.muted = false // Remote video should have audio
-      videoElement.disablePictureInPicture = true
-      
-      // Force play with retry logic
-      const playPromise = videoElement.play()
-      if (playPromise !== undefined) {
-        playPromise
-          .then(() => {
-            console.log('✅ Remote video playing')
-          })
-          .catch(err => {
-            console.log('⚠️ Remote video play error (trying again):', err.name)
-            // Retry multiple times for stubborn browsers
-            let retries = 0
-            const retryInterval = setInterval(() => {
-              videoElement.play()
-                .then(() => {
-                  console.log('✅ Remote video playing (after retry)')
-                  clearInterval(retryInterval)
-                })
-                .catch(e => {
-                  retries++
-                  if (retries > 5) {
-                    console.log('❌ Remote video play failed after retries:', e)
-                    clearInterval(retryInterval)
-                  }
-                })
-            }, 200)
-          })
-      }
-      
-      // Check if remote stream is screen share
-      if (videoTracks.length > 0) {
-        const trackLabel = videoTracks[0].label.toLowerCase()
-        const isScreen = trackLabel.includes('screen') || trackLabel.includes('window') || trackLabel.includes('display')
-        console.log('  Is screen share?', isScreen, '(label:', trackLabel + ')')
-        setRemoteIsScreenSharing(isScreen)
-        
-        // If it's screen share, route to screen ref instead
-        if (isScreen && remoteScreenRef.current) {
-          console.log('  Routing to remote screen ref')
-          const screenElement = remoteScreenRef.current
-          screenElement.srcObject = remoteStream
-          screenElement.setAttribute('playsinline', '')
-          screenElement.setAttribute('autoplay', '')
-          screenElement.playsInline = true
-          screenElement.autoplay = true
-          screenElement.play().catch(err => console.log('Remote screen play error:', err))
-        }
-      }
+      video.play().catch(err => {
+        console.error('Remote video play error:', err)
+        setTimeout(() => video.play().catch(() => {}), 100)
+      })
     }
   }, [remoteStream])
 
-  // Set up local screen share
+  // Setup screen share
   useEffect(() => {
-    if (localScreenRef.current && screenStream) {
-      console.log('🖥️ Setting local screen stream')
-      const screenElement = localScreenRef.current
-      screenElement.srcObject = screenStream
+    if (screenVideoRef.current && screenStream) {
+      const video = screenVideoRef.current
+      video.srcObject = screenStream
+      video.playsInline = true
+      video.autoplay = true
       
-      // Mobile/Safari fixes for screen share
-      screenElement.setAttribute('playsinline', '')
-      screenElement.setAttribute('autoplay', '')
-      screenElement.playsInline = true
-      screenElement.autoplay = true
-      
-      screenElement.play().catch(err => console.log('Local screen play error:', err))
+      video.play().catch(err => {
+        console.error('Screen share play error:', err)
+        setTimeout(() => video.play().catch(() => {}), 100)
+      })
     }
   }, [screenStream])
 
   const VideoBox = ({
     videoRef,
-    title,
-    subtitle,
-    isLive,
-    showVideo,
-    fallbackInitial,
-    gradient,
-    boxId,
+    stream,
+    username: boxUsername,
+    isMuted,
+    isLocal,
+    hasVideo,
+    className = '',
   }: {
     videoRef: React.RefObject<HTMLVideoElement>
-    title: string
-    subtitle?: string
-    isLive: boolean
-    showVideo: boolean
-    fallbackInitial: string
-    gradient: string
-    boxId: string
+    stream: MediaStream | null
+    username: string
+    isMuted?: boolean
+    isLocal?: boolean
+    hasVideo: boolean
+    className?: string
   }) => (
     <motion.div
       layout
-      initial={{ opacity: 0, scale: 0.9 }}
-      animate={{ 
-        opacity: 1, 
-        scale: 1,
-      }}
-      className={`relative rounded-lg sm:rounded-xl overflow-hidden shadow-lg sm:shadow-xl border border-white/20 sm:border-2 ${
-        expandedBox === boxId ? 'fixed inset-2 z-50' : ''
-      } ${gradient}`}
+      className={`relative overflow-hidden rounded-2xl bg-gradient-to-br from-gray-900 to-gray-800 shadow-2xl ${className}`}
     >
-      {/* Video or Placeholder */}
-      {showVideo ? (
-        <video
-          ref={videoRef}
-          autoPlay
-          playsInline
-          muted={boxId.includes('local')}
-          disablePictureInPicture
-          className="w-full h-full object-cover bg-black"
-          style={{ 
-            width: '100%', 
-            height: '100%', 
-            background: 'black',
-            objectFit: 'cover'
-          }}
-        />
-      ) : (
-        <div className="w-full h-full flex items-center justify-center">
-          <motion.div
-            initial={{ scale: 0.8 }}
-            animate={{ scale: 1 }}
-            className="text-center px-2"
-          >
-            <div className={`${
-              expandedBox === boxId 
-                ? 'w-24 h-24 sm:w-32 sm:h-32' 
-                : 'w-10 h-10 sm:w-16 sm:h-16'
-            } mx-auto mb-1 sm:mb-2 rounded-full bg-gradient-to-r from-pink-400 to-purple-400 flex items-center justify-center shadow-2xl transition-all`}>
-              <span className={`${
-                expandedBox === boxId 
-                  ? 'text-3xl sm:text-5xl' 
-                  : 'text-lg sm:text-2xl'
-              } font-bold text-white`}>
-                {fallbackInitial}
-              </span>
+      {/* Video Element */}
+      <video
+        ref={videoRef}
+        className={`w-full h-full object-cover transition-opacity duration-300 ${
+          hasVideo ? 'opacity-100' : 'opacity-0'
+        }`}
+        playsInline
+        autoPlay
+        muted={isLocal}
+        style={{ transform: isLocal ? 'scaleX(-1)' : 'none' }}
+      />
+
+      {/* Avatar Fallback */}
+      {!hasVideo && (
+        <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-pink-400 to-sky-400">
+          <div className="text-center">
+            <div className="w-16 h-16 md:w-24 md:h-24 mx-auto mb-3 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center">
+              <User className="w-8 h-8 md:w-12 md:h-12 text-white" />
             </div>
-            <p className={`text-white font-semibold truncate ${
-              expandedBox === boxId 
-                ? 'text-base sm:text-xl' 
-                : 'text-xs sm:text-sm'
-            }`}>{title}</p>
-            {subtitle && <p className={`text-white/60 mt-0.5 sm:mt-1 truncate ${
-              expandedBox === boxId 
-                ? 'text-sm sm:text-base' 
-                : 'text-[10px] sm:text-xs'
-            }`}>{subtitle}</p>}
-          </motion.div>
+            <p className="text-white font-semibold text-sm md:text-base">{boxUsername}</p>
+          </div>
         </div>
       )}
 
-      {/* Title Badge */}
-      <div className={`absolute top-1 left-1 sm:top-2 sm:left-2 bg-black/60 backdrop-blur-md px-1.5 py-0.5 sm:px-2 sm:py-1 rounded-full text-white font-medium shadow-lg flex items-center gap-0.5 sm:gap-1 ${
-        expandedBox === boxId ? 'text-xs sm:text-sm' : 'text-[9px] sm:text-xs'
-      }`}>
-        <span className="text-[10px] sm:text-xs">{boxId.includes('screen') ? '🖥️' : '👤'}</span>
-        <span className="hidden sm:inline truncate max-w-[100px]">{title}</span>
+      {/* User Info Overlay */}
+      <div className="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-black/60 to-transparent">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="text-white font-medium text-sm md:text-base truncate max-w-[150px]">
+              {boxUsername}
+            </span>
+            {isLocal && (
+              <span className="text-xs bg-white/20 px-2 py-0.5 rounded-full text-white">
+                You
+              </span>
+            )}
+          </div>
+          
+          {/* Mic Status */}
+          {isMuted !== undefined && (
+            <div className={`p-1.5 rounded-full ${isMuted ? 'bg-red-500' : 'bg-green-500'}`}>
+              {isMuted ? (
+                <MicOff className="w-3 h-3 md:w-4 md:h-4 text-white" />
+              ) : (
+                <Mic className="w-3 h-3 md:w-4 md:h-4 text-white" />
+              )}
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* Status Badge */}
-      <div className="absolute top-1 right-1 sm:top-2 sm:right-2">
-        {isLive ? (
-          <div className={`bg-green-500/90 backdrop-blur-sm px-1.5 py-0.5 sm:px-2 sm:py-1 rounded-full text-white font-medium flex items-center gap-0.5 sm:gap-1 ${
-            expandedBox === boxId ? 'text-xs' : 'text-[9px] sm:text-xs'
-          }`}>
-            <motion.div
-              className="w-1 h-1 sm:w-1.5 sm:h-1.5 bg-white rounded-full"
-              animate={{ opacity: [1, 0.5, 1] }}
-              transition={{ duration: 1.5, repeat: Infinity }}
+      {/* Connection Quality Indicator */}
+      <div className="absolute top-3 right-3">
+        <div className="flex gap-0.5">
+          {[1, 2, 3].map((bar) => (
+            <div
+              key={bar}
+              className={`w-1 rounded-full transition-all ${
+                hasVideo 
+                  ? 'bg-green-500 h-3' 
+                  : bar === 1 
+                    ? 'bg-yellow-500 h-2' 
+                    : 'bg-gray-500 h-1'
+              }`}
+              style={{ height: hasVideo ? `${bar * 4}px` : `${bar * 2}px` }}
             />
-            <span className="hidden sm:inline">Live</span>
-          </div>
-        ) : (
-          <div className={`bg-gray-500/90 backdrop-blur-sm px-1.5 py-0.5 sm:px-2 sm:py-1 rounded-full text-white font-medium ${
-            expandedBox === boxId ? 'text-xs' : 'text-[9px] sm:text-xs'
-          }`}>
-            <span className="hidden sm:inline">Off</span>
-          </div>
-        )}
+          ))}
+        </div>
       </div>
-
-      {/* Expand/Collapse Button */}
-      <motion.button
-        whileHover={{ scale: 1.1 }}
-        whileTap={{ scale: 0.9 }}
-        onClick={() => setExpandedBox(expandedBox === boxId ? null : boxId)}
-        className={`absolute bottom-1 right-1 sm:bottom-2 sm:right-2 rounded-full bg-white/20 hover:bg-white/30 active:bg-white/40 backdrop-blur-md flex items-center justify-center text-white transition-all ${
-          expandedBox === boxId ? 'w-8 h-8 sm:w-10 sm:h-10' : 'w-6 h-6 sm:w-8 sm:h-8'
-        }`}
-        title={expandedBox === boxId ? 'Minimize' : 'Expand'}
-      >
-        {expandedBox === boxId ? (
-          <svg className="w-3 h-3 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-          </svg>
-        ) : (
-          <svg className="w-3 h-3 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
-          </svg>
-        )}
-      </motion.button>
     </motion.div>
   )
 
+  // Screen share layout
+  if (hasScreenShare) {
+    return (
+      <div className="h-full flex flex-col gap-3 md:gap-4">
+        {/* Screen Share - Full Width */}
+        <div className="flex-1 relative">
+          <motion.div
+            layout
+            className="h-full rounded-2xl overflow-hidden bg-black shadow-2xl"
+          >
+            <video
+              ref={screenVideoRef}
+              className="w-full h-full object-contain"
+              playsInline
+              autoPlay
+            />
+            
+            {/* Screen Share Label */}
+            <div className="absolute top-4 left-4 px-4 py-2 bg-blue-500 rounded-xl text-white font-medium flex items-center gap-2 shadow-lg">
+              <Monitor className="w-5 h-5" />
+              <span className="hidden sm:inline">Screen Sharing</span>
+            </div>
+          </motion.div>
+        </div>
+
+        {/* Participants Strip */}
+        <div className="flex gap-2 md:gap-3 overflow-x-auto scrollbar-hide pb-1">
+          {/* Local Video - Thumbnail */}
+          <div className="flex-shrink-0 w-32 h-24 md:w-40 md:h-28">
+            <VideoBox
+              videoRef={localVideoRef}
+              stream={localStream}
+              username={username}
+              isMuted={!isMicOn}
+              isLocal
+              hasVideo={hasLocalVideo || false}
+            />
+          </div>
+
+          {/* Remote Video - Thumbnail */}
+          {remoteStream && (
+            <div className="flex-shrink-0 w-32 h-24 md:w-40 md:h-28">
+              <VideoBox
+                videoRef={remoteVideoRef}
+                stream={remoteStream}
+                username={remoteUsername}
+                hasVideo={hasRemoteVideo || false}
+              />
+            </div>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  // Default layout - Grid view
+  const hasRemote = remoteStream || participants.length > 0
+  
   return (
-    <div className="w-full h-full">
-      {/* 4 Box Grid Layout - Responsive */}
-      <div className={`grid gap-1 sm:gap-2 h-full ${
-        expandedBox 
-          ? 'grid-cols-1 grid-rows-1' 
-          : 'grid-cols-2 grid-rows-2'
-      }`}>
-        {/* Box 1: Your Camera */}
-        {(!expandedBox || expandedBox === 'local-camera') && (
-          <VideoBox
-            videoRef={localVideoRef}
-            title={`${username} (You)`}
-            subtitle={hasLocalVideo ? 'Camera On' : 'Camera Off'}
-            isLive={!!hasLocalVideo}
-            showVideo={!!hasLocalVideo}
-            fallbackInitial={username.charAt(0).toUpperCase()}
-            gradient="bg-gradient-to-br from-purple-900 via-indigo-800 to-blue-900"
-            boxId="local-camera"
-          />
-        )}
-
-        {/* Box 2: Your Screen Share */}
-        {(!expandedBox || expandedBox === 'local-screen') && (
-          <VideoBox
-            videoRef={localScreenRef}
-            title="Your Screen"
-            subtitle={isScreenSharing ? 'Sharing...' : 'Not sharing'}
-            isLive={isScreenSharing && !!screenStream}
-            showVideo={isScreenSharing && !!screenStream}
-            fallbackInitial="🖥️"
-            gradient="bg-gradient-to-br from-indigo-900 via-purple-800 to-pink-900"
-            boxId="local-screen"
-          />
-        )}
-
-        {/* Box 3: Remote User Camera */}
-        {(!expandedBox || expandedBox === 'remote-camera') && (
+    <div className="h-full">
+      {hasRemote ? (
+        // Two-person grid
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4 h-full">
+          {/* Remote Video - Main */}
           <VideoBox
             videoRef={remoteVideoRef}
-            title={remoteUsername}
-            subtitle={hasRemoteVideo ? 'Connected' : 'Waiting...'}
-            isLive={!!hasRemoteVideo && !remoteIsScreenSharing}
-            showVideo={!!hasRemoteVideo && !remoteIsScreenSharing}
-            fallbackInitial={remoteUsername.charAt(0).toUpperCase()}
-            gradient="bg-gradient-to-br from-pink-900 via-purple-800 to-indigo-900"
-            boxId="remote-camera"
+            stream={remoteStream}
+            username={remoteUsername}
+            hasVideo={hasRemoteVideo || false}
+            className="h-full min-h-[300px] md:min-h-[400px]"
           />
-        )}
 
-        {/* Box 4: Remote User Screen Share */}
-        {(!expandedBox || expandedBox === 'remote-screen') && (
+          {/* Local Video */}
           <VideoBox
-            videoRef={remoteScreenRef}
-            title={`${remoteUsername}'s Screen`}
-            subtitle={remoteIsScreenSharing ? 'Sharing...' : 'Not sharing'}
-            isLive={remoteIsScreenSharing}
-            showVideo={remoteIsScreenSharing}
-            fallbackInitial="🖥️"
-            gradient="bg-gradient-to-br from-blue-900 via-indigo-800 to-purple-900"
-            boxId="remote-screen"
+            videoRef={localVideoRef}
+            stream={localStream}
+            username={username}
+            isMuted={!isMicOn}
+            isLocal
+            hasVideo={hasLocalVideo || false}
+            className="h-full min-h-[300px] md:min-h-[400px]"
           />
-        )}
-      </div>
+        </div>
+      ) : (
+        // Solo view - Centered local video
+        <div className="flex items-center justify-center h-full p-4">
+          <div className="w-full max-w-2xl aspect-video">
+            <VideoBox
+              videoRef={localVideoRef}
+              stream={localStream}
+              username={username}
+              isMuted={!isMicOn}
+              isLocal
+              hasVideo={hasLocalVideo || false}
+              className="h-full"
+            />
+          </div>
+        </div>
+      )}
 
-
+      {/* Floating Local Video (PiP mode) - Hidden on mobile when in grid */}
+      {hasRemote && (
+        <motion.div
+          drag
+          dragMomentum={false}
+          dragElastic={0.1}
+          dragConstraints={{
+            top: 0,
+            left: 0,
+            right: window.innerWidth - 200,
+            bottom: window.innerHeight - 150,
+          }}
+          className="hidden lg:block fixed bottom-20 right-6 w-48 h-36 z-40 cursor-move"
+          initial={{ scale: 0, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          whileHover={{ scale: 1.05 }}
+        >
+          <VideoBox
+            videoRef={localVideoRef}
+            stream={localStream}
+            username={username}
+            isMuted={!isMicOn}
+            isLocal
+            hasVideo={hasLocalVideo || false}
+            className="h-full ring-2 ring-white/50"
+          />
+        </motion.div>
+      )}
     </div>
   )
 }

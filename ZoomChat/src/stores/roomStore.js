@@ -112,20 +112,34 @@ export const useRoomStore = create((set, get) => ({
   fetchRooms: async (params = {}) => {
     set({ loading: true, error: null });
     try {
+      console.log('Fetching rooms with params:', params);
       const response = await apiClient.rooms.getAll(params);
+      console.log('Rooms API response:', response);
+      
+      // Handle different response formats
+      const roomsData = response.data?.rooms || response.rooms || [];
+      const paginationData = response.data?.pagination || response.pagination || {
+        page: 1,
+        limit: 20,
+        total: roomsData.length,
+        pages: 1
+      };
+      
       set({
-        rooms: response.data.rooms,
-        pagination: response.data.pagination,
+        rooms: roomsData,
+        pagination: paginationData,
         loading: false,
         error: null
       });
-      return response.data;
+      return response.data || response;
     } catch (error) {
+      console.error('Error fetching rooms:', error);
       set({
         loading: false,
         error: error.message || 'Failed to fetch rooms'
       });
-      throw error;
+      // Don't throw error - just set it in state
+      return { rooms: [], pagination: { page: 1, limit: 20, total: 0, pages: 0 } };
     }
   },
 

@@ -74,6 +74,7 @@ export default function RoomPage() {
   const inboundStreamsRef = useRef<Map<string, MediaStream>>(new Map())
   const screenStreamRefs = useRef<Map<string, MediaStream>>(new Map())
   const [chatInput, setChatInput] = useState('')
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false)
   const [isInitialized, setIsInitialized] = useState(false)
   const [showControls, setShowControls] = useState(true)
   const [roomReady, setRoomReady] = useState(false)
@@ -982,64 +983,108 @@ export default function RoomPage() {
       <ThemeSwitcher />
 
       {/* Main Room Content */}
-      <div className="h-screen bg-transparent flex relative z-10">
+      <div className="h-[100dvh] bg-transparent flex relative z-10 overflow-hidden">
       {/* Main video area */}
-      <div className="flex-1 flex flex-col">
+      <div className="flex-1 flex flex-col overflow-hidden">
         {/* Header */}
         <AnimatePresence>
           {(showControls || (typeof window !== 'undefined' && window.innerWidth >= 768)) && (
-            <motion.div initial={{ y: -100 }} animate={{ y: 0 }} exit={{ y: -100 }} className="bg-gradient-to-r from-pink-500/20 via-purple-500/20 to-blue-500/20 backdrop-blur-xl px-4 md:px-6 py-3 md:py-4 flex items-center justify-between border-b border-white/20 shadow-xl">
-              <div className="flex items-center gap-1.5 md:gap-4">
-                <h1 className="text-white text-xs md:text-xl font-bold truncate max-w-[80px] md:max-w-none drop-shadow-lg flex items-center gap-1">
-                  💕 <span className="hidden md:inline">{roomId.slice(0, 15)}...</span><span className="md:hidden">Room</span>
-                </h1>
-                <span className="text-white/80 text-[10px] md:text-sm font-medium bg-white/10 px-1.5 md:px-2 py-0.5 md:py-1 rounded-full backdrop-blur-sm">⏱️ {formatDuration(callDuration)}</span>
-                <span className="text-white/80 text-[10px] md:text-sm font-medium bg-white/10 px-1.5 md:px-2 py-0.5 md:py-1 rounded-full backdrop-blur-sm">👥 {participants.length + 1}</span>
+            <motion.div 
+              initial={{ y: -100, opacity: 0 }} 
+              animate={{ y: 0, opacity: 1 }} 
+              exit={{ y: -100, opacity: 0 }}
+              transition={{ type: 'spring', damping: 20 }}
+              className="bg-gradient-to-r from-pink-500/30 via-purple-500/30 to-sky-500/30 backdrop-blur-xl px-4 md:px-6 py-3 md:py-4 flex items-center justify-between border-b border-white/30 shadow-2xl relative overflow-hidden"
+            >
+              {/* Animated background */}
+              <div className="absolute inset-0 bg-gradient-to-r from-pink-400/10 via-purple-400/10 to-sky-400/10 animate-pulse" />
+              
+              <div className="flex items-center gap-2 md:gap-4 relative z-10">
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse shadow-lg shadow-green-400/50" />
+                  <h1 className="text-white text-sm md:text-xl font-bold truncate max-w-[100px] md:max-w-none drop-shadow-lg flex items-center gap-2">
+                    <span className="text-xl md:text-2xl">💕</span>
+                    <span className="hidden md:inline bg-gradient-to-r from-pink-200 to-sky-200 bg-clip-text text-transparent">
+                      {roomId.slice(0, 20)}...
+                    </span>
+                    <span className="md:hidden">Room</span>
+                  </h1>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-white/90 text-[10px] md:text-sm font-bold bg-white/20 px-2 md:px-3 py-1 rounded-full backdrop-blur-sm border border-white/30 shadow-lg">
+                    ⏱️ {formatDuration(callDuration)}
+                  </span>
+                  <span className="text-white/90 text-[10px] md:text-sm font-bold bg-white/20 px-2 md:px-3 py-1 rounded-full backdrop-blur-sm border border-white/30 shadow-lg">
+                    👥 {participants.length + 1}
+                  </span>
+                </div>
               </div>
-              <div className="flex items-center gap-2">
+              
+              <div className="flex items-center gap-2 relative z-10">
+                <button 
+                  onClick={() => setIsChatVisible(!isChatVisible)}
+                  className="md:hidden p-2 rounded-full bg-white/20 hover:bg-white/30 text-white backdrop-blur-sm transition-all active:scale-95"
+                >
+                  <MessageCircle size={20} />
+                </button>
               </div>
             </motion.div>
           )}
         </AnimatePresence>
         
-        {/* Video Grid - UPGRADED: Shows camera + screen for each user */}
-        <div className="flex-1 p-2 md:p-4 grid grid-cols-1 gap-2 md:gap-4 overflow-y-auto content-start\">
-          {/* Local Camera */}
-          <motion.div 
-            initial={{ scale: 0.8, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            className="relative bg-black/30 backdrop-blur-sm rounded-2xl overflow-hidden aspect-video shadow-2xl border-2 border-transparent bg-gradient-to-r from-pink-500/50 via-purple-500/50 to-blue-500/50 p-[2px]"
-          >
-            <div className="bg-black/40 rounded-2xl overflow-hidden h-full w-full">
-            <video ref={localVideoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
-            <div className="absolute bottom-2 md:bottom-4 left-2 md:left-4 bg-gradient-to-r from-pink-600 via-purple-600 to-blue-600 px-3 md:px-4 py-1.5 rounded-full text-white text-xs md:text-sm font-bold shadow-lg backdrop-blur-sm animate-pulse">
-              💕 {user.name} (You)
-            </div>
-            {!isCameraOn && (
-              <div className="absolute inset-0 flex items-center justify-center bg-black/50 backdrop-blur-md">
-                <motion.div 
-                  initial={{ scale: 0 }}
-                  animate={{ scale: 1 }}
-                  className="text-center"
-                >
-                  <VideoOff size={48} className="md:w-16 md:h-16 text-gray-400 mx-auto mb-2" />
-                  <p className="text-gray-400 text-sm md:text-base font-semibold">Camera Off</p>
-                </motion.div>
+        {/* Video Grid - Card-based layout for participants */}
+        <div className="flex-1 p-3 md:p-6 overflow-y-auto bg-gradient-to-br from-pink-900/5 via-purple-900/5 to-sky-900/5">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
+            {/* Local Camera Card */}
+            <motion.div 
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ type: 'spring', damping: 15 }}
+              className="relative rounded-3xl overflow-hidden aspect-video shadow-2xl group"
+            >
+              {/* Gradient Border Effect */}
+              <div className="absolute inset-0 bg-gradient-to-r from-pink-500 via-purple-500 to-sky-500 p-[3px] rounded-3xl">
+                <div className="bg-gradient-to-br from-gray-900 to-black rounded-3xl overflow-hidden h-full w-full relative">
+                  <video ref={localVideoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
+                  
+                  {/* User Name Badge */}
+                  <div className="absolute bottom-2 md:bottom-3 left-2 md:left-3 bg-gradient-to-r from-pink-600 via-purple-600 to-sky-600 px-2 md:px-3 py-1 md:py-1.5 rounded-full text-white text-xs font-bold shadow-2xl backdrop-blur-sm border border-white/20 flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse shadow-lg shadow-green-400/50" />
+                    💕 {user.name}
+                  </div>
+                  
+                  {/* Camera Off Overlay */}
+                  {!isCameraOn && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-gray-900/95 to-black/95 backdrop-blur-md">
+                      <motion.div 
+                        initial={{ scale: 0, rotate: -180 }}
+                        animate={{ scale: 1, rotate: 0 }}
+                        transition={{ type: 'spring', damping: 10 }}
+                        className="text-center"
+                      >
+                        <div className="w-12 h-12 md:w-16 md:h-16 rounded-full bg-gradient-to-br from-pink-500/20 to-purple-500/20 flex items-center justify-center mb-2 mx-auto border-2 border-pink-400/30">
+                          <VideoOff size={24} className="md:w-8 md:h-8 text-pink-300" />
+                        </div>
+                        <p className="text-gray-300 text-xs md:text-sm font-semibold">Camera Off</p>
+                      </motion.div>
+                    </div>
+                  )}
+                  
+                  {/* Mic Muted Icon */}
+                  {!isMicOn && (
+                    <motion.div 
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
+                      className="absolute top-2 md:top-3 right-2 md:right-3"
+                    >
+                      <div className="bg-gradient-to-r from-red-500 to-pink-500 p-1.5 md:p-2 rounded-full shadow-2xl border-2 border-red-300/50">
+                        <MicOff size={12} className="md:w-4 md:h-4 text-white" />
+                      </div>
+                    </motion.div>
+                  )}
+                </div>
               </div>
-            )}
-            {!isMicOn && (
-              <div className="absolute top-2 md:top-4 right-2 md:right-4">
-                <motion.div 
-                  initial={{ scale: 0 }}
-                  animate={{ scale: 1 }}
-                  className="bg-red-600 p-2 md:p-2.5 rounded-full shadow-lg"
-                >
-                  <MicOff size={14} className="md:w-5 md:h-5 text-white" />
-                </motion.div>
-              </div>
-            )}
-            </div>
-          </motion.div>
+            </motion.div>
           
           {/* Local Screen Share */}
           {isScreenSharing && screenStream && (
@@ -1062,110 +1107,134 @@ export default function RoomPage() {
             </motion.div>
           )}
           
-          {/* Remote Participants - Camera AND Screen */}
+          {/* Remote Participants - Camera Cards */}
           {participants.map((p: any) => {
             const stream = remoteStreams[p.id]
             const screenStream = screenStreamRefs.current.get(p.id)
             
             return (
               <Fragment key={p.id}>
-                {/* Remote User Camera */}
+                {/* Remote User Camera Card */}
                 <motion.div 
                   initial={{ scale: 0.8, opacity: 0 }}
                   animate={{ scale: 1, opacity: 1 }}
-                  className="relative bg-black/30 backdrop-blur-sm rounded-2xl overflow-hidden aspect-video shadow-2xl border-2 border-transparent bg-gradient-to-r from-purple-500/50 via-pink-500/50 to-blue-500/50 p-[2px]"
+                  transition={{ type: 'spring', damping: 15, delay: 0.1 }}
+                  className="relative rounded-3xl overflow-hidden aspect-video shadow-2xl group"
                 >
-                  <div className="bg-black/40 rounded-2xl overflow-hidden h-full w-full">
-                  {stream ? (
-                    <video 
-                      ref={(el) => { 
-                        if (el) {
-                          remoteVideoRefs.current.set(p.id, el)
-                          el.srcObject = stream
-                        }
-                      }} 
-                      autoPlay 
-                      playsInline 
-                      className="w-full h-full object-cover" 
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center bg-black/50 backdrop-blur-md">
-                      <motion.div 
-                        animate={{ 
-                          scale: [1, 1.1, 1],
-                          opacity: [0.5, 1, 0.5]
-                        }}
-                        transition={{ 
-                          duration: 2,
-                          repeat: Infinity
-                        }}
-                        className="text-center"
-                      >
-                        <div className="text-6xl mb-4">💞</div>
-                        <div className="flex items-center gap-2">
-                          <div className="w-2 h-2 bg-pink-400 rounded-full animate-bounce"></div>
-                          <p className="text-white/60">Connecting...</p>
-                          <div className="w-2 h-2 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                  {/* Gradient Border */}
+                  <div className="absolute inset-0 bg-gradient-to-r from-purple-500 via-pink-500 to-sky-500 p-[3px] rounded-3xl">
+                    <div className="bg-gradient-to-br from-gray-900 to-black rounded-3xl overflow-hidden h-full w-full relative">
+                      {stream ? (
+                        <video 
+                          ref={(el) => { 
+                            if (el) {
+                              remoteVideoRefs.current.set(p.id, el)
+                              el.srcObject = stream
+                            }
+                          }} 
+                          autoPlay 
+                          playsInline 
+                          className="w-full h-full object-cover" 
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-900/50 to-black/50 backdrop-blur-md">
+                          <motion.div 
+                            animate={{ 
+                              scale: [1, 1.05, 1],
+                              opacity: [0.5, 1, 0.5]
+                            }}
+                            transition={{ 
+                              duration: 2,
+                              repeat: Infinity
+                            }}
+                            className="text-center"
+                          >
+                            <div className="text-4xl md:text-5xl mb-3">💞</div>
+                            <div className="flex items-center gap-2 justify-center">
+                              <div className="w-1.5 h-1.5 bg-pink-400 rounded-full animate-bounce"></div>
+                              <p className="text-white/60 text-xs md:text-sm">Connecting...</p>
+                              <div className="w-1.5 h-1.5 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                            </div>
+                          </motion.div>
                         </div>
-                      </motion.div>
+                      )}
+                      
+                      {/* User Name Badge */}
+                      <div className="absolute bottom-2 md:bottom-3 left-2 md:left-3 bg-gradient-to-r from-purple-600 via-pink-600 to-sky-600 backdrop-blur-sm px-2 md:px-3 py-1 md:py-1.5 rounded-full text-white text-xs font-bold shadow-2xl border border-white/20 flex items-center gap-1.5">
+                        <span className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse shadow-lg shadow-green-400/50" />
+                        💕 {p.username}
+                      </div>
+                      
+                      {/* Camera Off Overlay */}
+                      {!p.isCameraOn && stream && (
+                        <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-gray-900/95 to-black/95 backdrop-blur-md">
+                          <motion.div 
+                            initial={{ scale: 0 }}
+                            animate={{ scale: 1 }}
+                            className="text-center"
+                          >
+                            <div className="w-12 h-12 md:w-16 md:h-16 rounded-full bg-gradient-to-br from-pink-500/20 to-purple-500/20 flex items-center justify-center mb-2 mx-auto border-2 border-pink-400/30">
+                              <VideoOff size={24} className="md:w-8 md:h-8 text-pink-300/60" />
+                            </div>
+                            <p className="text-white/60 text-xs md:text-sm font-semibold">Camera Off</p>
+                          </motion.div>
+                        </div>
+                      )}
+                      
+                      {/* Mic Muted Icon */}
+                      {!p.isMicOn && (
+                        <motion.div 
+                          initial={{ scale: 0 }}
+                          animate={{ scale: 1 }}
+                          className="absolute top-2 md:top-3 right-2 md:right-3"
+                        >
+                          <div className="bg-gradient-to-r from-red-500 to-pink-500 p-1.5 md:p-2 rounded-full shadow-2xl border-2 border-red-300/50">
+                            <MicOff size={12} className="md:w-4 md:h-4 text-white" />
+                          </div>
+                        </motion.div>
+                      )}
+                      
+                      {/* Screen Sharing Indicator */}
+                      {p.isScreenSharing && (
+                        <div className="absolute top-2 left-2 bg-gradient-to-r from-green-500 to-emerald-500 px-2 py-1 rounded-full text-white text-[10px] font-bold flex items-center gap-1 shadow-lg">
+                          <ScreenShare size={10} />
+                          Sharing
+                        </div>
+                      )}
                     </div>
-                  )}
-                  <div className="absolute bottom-2 md:bottom-4 left-2 md:left-4 bg-gradient-to-r from-purple-600 via-pink-600 to-blue-600 backdrop-blur-sm px-3 md:px-4 py-1.5 rounded-full text-white text-xs md:text-sm font-bold shadow-lg">
-                    💕 {p.username}
-                  </div>
-                  {!p.isCameraOn && stream && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-black/70 backdrop-blur-md">
-                      <motion.div 
-                        initial={{ scale: 0 }}
-                        animate={{ scale: 1 }}
-                        className="text-center"
-                      >
-                        <VideoOff size={48} className="md:w-16 md:h-16 text-pink-300/60 mx-auto mb-2" />
-                        <p className="text-white/60 text-sm md:text-base font-semibold">Camera Off</p>
-                      </motion.div>
-                    </div>
-                  )}
-                  {!p.isMicOn && (
-                    <div className="absolute top-2 md:top-4 right-2 md:right-4 bg-red-600 p-2 md:p-2.5 rounded-full shadow-lg">
-                      <MicOff size={14} className="md:w-5 md:h-5 text-white" />
-                    </div>
-                  )}
-                  {p.isScreenSharing && (
-                    <div className="absolute top-2 left-2 bg-green-600 px-2 py-1 rounded-full text-white text-xs font-bold flex items-center gap-1">
-                      <ScreenShare size={12} />
-                      Sharing
-                    </div>
-                  )}
                   </div>
                 </motion.div>
                 
-                {/* Remote User Screen Share */}
+                {/* Remote User Screen Share Card (if sharing) */}
                 {screenStream && (
                   <motion.div 
                     initial={{ scale: 0.8, opacity: 0 }}
                     animate={{ scale: 1, opacity: 1 }}
                     exit={{ scale: 0.8, opacity: 0 }}
-                    className="relative bg-black/30 backdrop-blur-sm rounded-2xl overflow-hidden aspect-video shadow-2xl border-2 border-transparent bg-gradient-to-r from-green-400/50 via-emerald-500/50 to-teal-500/50 p-[2px]"
+                    transition={{ type: 'spring', damping: 15 }}
+                    className="relative rounded-3xl overflow-hidden aspect-video shadow-2xl lg:col-span-2"
                   >
-                    <div className="bg-black/40 rounded-2xl overflow-hidden h-full w-full">
-                    <video 
-                      ref={(el) => {
-                        if (el) {
-                          remoteScreenRefs.current.set(p.id, el)
-                          el.srcObject = screenStream
-                        }
-                      }}
-                      autoPlay 
-                      playsInline 
-                      className="w-full h-full object-contain bg-gray-900" 
-                    />
-                    <div className="absolute bottom-2 md:bottom-4 left-2 md:left-4 bg-gradient-to-r from-green-500 via-emerald-500 to-teal-500 px-3 md:px-4 py-1.5 rounded-full text-white text-xs md:text-sm font-bold shadow-lg flex items-center gap-2 backdrop-blur-sm">
-                      <ScreenShare size={16} />
-                      🖥️ {p.username}'s Screen
-                    </div>
-                    <div className="absolute top-2 right-2 bg-gradient-to-r from-green-500 to-emerald-500 px-3 py-1 rounded-full text-white text-xs font-bold animate-pulse shadow-lg">
-                      ✨ LIVE
-                    </div>
+                    <div className="absolute inset-0 bg-gradient-to-r from-green-500 via-emerald-500 to-teal-500 p-[3px] rounded-3xl">
+                      <div className="bg-gradient-to-br from-gray-900 to-black rounded-3xl overflow-hidden h-full w-full relative">
+                        <video 
+                          ref={(el) => {
+                            if (el) {
+                              remoteScreenRefs.current.set(p.id, el)
+                              el.srcObject = screenStream
+                            }
+                          }}
+                          autoPlay 
+                          playsInline 
+                          className="w-full h-full object-contain bg-gray-900" 
+                        />
+                        <div className="absolute bottom-2 md:bottom-3 left-2 md:left-3 bg-gradient-to-r from-green-500 via-emerald-500 to-teal-500 px-2 md:px-3 py-1 md:py-1.5 rounded-full text-white text-xs font-bold shadow-2xl flex items-center gap-1.5 backdrop-blur-sm border border-white/20">
+                          <ScreenShare size={14} />
+                          🖥️ {p.username}'s Screen
+                        </div>
+                        <div className="absolute top-2 right-2 bg-gradient-to-r from-green-500 to-emerald-500 px-2 md:px-3 py-1 rounded-full text-white text-[10px] font-bold animate-pulse shadow-lg">
+                          ✨ LIVE
+                        </div>
+                      </div>
                     </div>
                   </motion.div>
                 )}
@@ -1175,23 +1244,50 @@ export default function RoomPage() {
           
           {/* Empty state when no participants */}
           {participants.length === 0 && !isScreenSharing && (
-            <div className="relative bg-gradient-to-br from-pink-500/10 via-purple-500/10 to-blue-500/10 backdrop-blur-sm rounded-2xl overflow-hidden aspect-video flex items-center justify-center border-2 border-dashed border-white/20">
-              <div className="text-center p-8">
-                <div className="text-6xl mb-4">🔗</div>
-                <h3 className="text-white text-lg font-semibold mb-2">Waiting for others to join</h3>
-                <p className="text-gray-400 text-sm mb-4">Share the room link with others</p>
-                <button 
-                  onClick={() => {
-                    navigator.clipboard.writeText(window.location.href)
-                    addToast({ message: 'Room link copied!', type: 'success' })
-                  }}
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm transition-all"
-                >
-                  📋 Copy Room Link
-                </button>
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="relative rounded-3xl overflow-hidden aspect-video flex items-center justify-center"
+            >
+              {/* Animated gradient border */}
+              <div className="absolute inset-0 bg-gradient-to-r from-pink-500/30 via-purple-500/30 to-sky-500/30 p-[2px] rounded-3xl">
+                <div className="bg-gradient-to-br from-gray-900/40 to-black/40 backdrop-blur-md rounded-3xl h-full w-full flex items-center justify-center border border-white/10">
+                  <div className="text-center p-4 md:p-6">
+                    <motion.div
+                      animate={{ 
+                        scale: [1, 1.05, 1],
+                        rotate: [0, 3, -3, 0]
+                      }}
+                      transition={{ 
+                        duration: 2.5,
+                        repeat: Infinity,
+                        ease: "easeInOut"
+                      }}
+                      className="text-4xl md:text-5xl mb-3"
+                    >
+                      🔗
+                    </motion.div>
+                    <h3 className="text-white text-sm md:text-base font-bold mb-1.5 bg-gradient-to-r from-pink-300 to-sky-300 bg-clip-text text-transparent">
+                      Waiting for others to join
+                    </h3>
+                    <p className="text-white/50 text-xs mb-3">Share the room link with others</p>
+                    <motion.button 
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={() => {
+                        navigator.clipboard.writeText(window.location.href)
+                        addToast({ message: 'Room link copied!', type: 'success' })
+                      }}
+                      className="px-3 md:px-4 py-1.5 md:py-2 bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-700 hover:to-purple-700 text-white rounded-full text-xs font-semibold transition-all shadow-xl border border-pink-400/50"
+                    >
+                      📋 Copy Link
+                    </motion.button>
+                  </div>
+                </div>
               </div>
-            </div>
+            </motion.div>
           )}
+          </div>
         </div>
         
         {/* Floating Chat Toggle Button - Mobile Only */}
@@ -1212,113 +1308,400 @@ export default function RoomPage() {
         {/* Bottom Controls */}
         <AnimatePresence>
           {(showControls || (typeof window !== 'undefined' && window.innerWidth >= 768)) && (
-            <motion.div initial={{ y: 100 }} animate={{ y: 0 }} exit={{ y: 100 }} className="bg-gradient-to-r from-pink-500/20 via-purple-500/20 to-blue-500/20 backdrop-blur-xl px-4 md:px-6 py-3 md:py-6 flex items-center justify-center gap-2 md:gap-4 border-t border-white/20 shadow-2xl">
-              <button onClick={handleToggleCamera} className={`p-2.5 md:p-4 rounded-full transition-all touch-manipulation active:scale-95 shadow-lg border-2 ${isCameraOn ? 'bg-gradient-to-r from-blue-500/30 to-purple-500/30 hover:from-blue-500/50 hover:to-purple-500/50 border-blue-400/30 text-white backdrop-blur-sm' : 'bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600 border-red-400 text-white'}`}>
-                {isCameraOn ? <Video size={18} className="md:w-6 md:h-6" /> : <VideoOff size={18} className="md:w-6 md:h-6" />}
-              </button>
-              <button onClick={handleToggleMic} className={`p-2.5 md:p-4 rounded-full transition-all touch-manipulation active:scale-95 shadow-lg border-2 ${isMicOn ? 'bg-gradient-to-r from-green-500/30 to-emerald-500/30 hover:from-green-500/50 hover:to-emerald-500/50 border-green-400/30 text-white backdrop-blur-sm' : 'bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600 border-red-400 text-white'}`}>
-                {isMicOn ? <Mic size={18} className="md:w-6 md:h-6" /> : <MicOff size={18} className="md:w-6 md:h-6" />}
-              </button>
-              <button onClick={handleScreenShare} className={`hidden md:flex p-2.5 md:p-4 rounded-full transition-all touch-manipulation active:scale-95 shadow-lg border-2 ${isScreenSharing ? 'bg-gradient-to-r from-green-500 to-teal-500 hover:from-green-600 hover:to-teal-600 border-green-400 text-white animate-pulse' : 'bg-gradient-to-r from-purple-500/30 to-blue-500/30 hover:from-purple-500/50 hover:to-blue-500/50 border-purple-400/30 text-white backdrop-blur-sm'}`}>
-                <ScreenShare size={18} className="md:w-6 md:h-6" />
-              </button>
-              <button onClick={handleLeaveCall} className="p-2.5 md:p-4 rounded-full bg-gradient-to-r from-red-500 to-pink-600 hover:from-red-600 hover:to-pink-700 text-white transition-all ml-1 md:ml-4 touch-manipulation active:scale-95 shadow-xl border-2 border-red-400">
-                <PhoneOff size={20} className="md:w-6 md:h-6" />
-              </button>
+            <motion.div 
+              initial={{ y: 100, opacity: 0 }} 
+              animate={{ y: 0, opacity: 1 }} 
+              exit={{ y: 100, opacity: 0 }}
+              transition={{ type: 'spring', damping: 20 }}
+              className="bg-gradient-to-r from-pink-500/30 via-purple-500/30 to-sky-500/30 backdrop-blur-xl px-4 md:px-6 py-4 md:py-6 flex items-center justify-center gap-3 md:gap-6 border-t border-white/30 shadow-2xl relative overflow-hidden"
+            >
+              {/* Animated background */}
+              <div className="absolute inset-0 bg-gradient-to-r from-pink-400/5 via-purple-400/5 to-sky-400/5" />
+              
+              <div className="flex items-center gap-3 md:gap-4 relative z-10">
+                {/* Camera Toggle */}
+                <motion.button 
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={handleToggleCamera} 
+                  className={`p-3 md:p-4 rounded-full transition-all shadow-2xl border-2 relative group ${
+                    isCameraOn 
+                      ? 'bg-gradient-to-r from-sky-500/40 to-purple-500/40 hover:from-sky-500/60 hover:to-purple-500/60 border-sky-400/50 text-white backdrop-blur-sm' 
+                      : 'bg-gradient-to-r from-red-500 to-pink-600 hover:from-red-600 hover:to-pink-700 border-red-400 text-white'
+                  }`}
+                >
+                  {isCameraOn ? <Video size={20} className="md:w-6 md:h-6" /> : <VideoOff size={20} className="md:w-6 md:h-6" />}
+                  {isCameraOn && <div className="absolute top-0 right-0 w-2 h-2 bg-green-400 rounded-full animate-pulse shadow-lg shadow-green-400/50" />}
+                  <div className="absolute -top-12 left-1/2 -translate-x-1/2 bg-black/90 text-white px-3 py-1 rounded-lg text-xs opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
+                    {isCameraOn ? 'Turn Off Camera' : 'Turn On Camera'}
+                  </div>
+                </motion.button>
+                
+                {/* Mic Toggle */}
+                <motion.button 
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={handleToggleMic} 
+                  className={`p-3 md:p-4 rounded-full transition-all shadow-2xl border-2 relative group ${
+                    isMicOn 
+                      ? 'bg-gradient-to-r from-emerald-500/40 to-teal-500/40 hover:from-emerald-500/60 hover:to-teal-500/60 border-emerald-400/50 text-white backdrop-blur-sm' 
+                      : 'bg-gradient-to-r from-red-500 to-pink-600 hover:from-red-600 hover:to-pink-700 border-red-400 text-white'
+                  }`}
+                >
+                  {isMicOn ? <Mic size={20} className="md:w-6 md:h-6" /> : <MicOff size={20} className="md:w-6 md:h-6" />}
+                  {isMicOn && <div className="absolute top-0 right-0 w-2 h-2 bg-green-400 rounded-full animate-pulse shadow-lg shadow-green-400/50" />}
+                  <div className="absolute -top-12 left-1/2 -translate-x-1/2 bg-black/90 text-white px-3 py-1 rounded-lg text-xs opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
+                    {isMicOn ? 'Mute' : 'Unmute'}
+                  </div>
+                </motion.button>
+                
+                {/* Screen Share */}
+                <motion.button 
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={handleScreenShare} 
+                  className={`hidden md:flex p-3 md:p-4 rounded-full transition-all shadow-2xl border-2 relative group ${
+                    isScreenSharing 
+                      ? 'bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 border-green-400 text-white' 
+                      : 'bg-gradient-to-r from-purple-500/40 to-blue-500/40 hover:from-purple-500/60 hover:to-blue-500/60 border-purple-400/50 text-white backdrop-blur-sm'
+                  }`}
+                >
+                  <ScreenShare size={20} className="md:w-6 md:h-6" />
+                  {isScreenSharing && (
+                    <div className="absolute -top-1 -right-1 w-4 h-4">
+                      <div className="absolute inset-0 bg-green-400 rounded-full animate-ping" />
+                      <div className="absolute inset-0 bg-green-400 rounded-full" />
+                    </div>
+                  )}
+                  <div className="absolute -top-12 left-1/2 -translate-x-1/2 bg-black/90 text-white px-3 py-1 rounded-lg text-xs opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
+                    {isScreenSharing ? 'Stop Sharing' : 'Share Screen'}
+                  </div>
+                </motion.button>
+                
+                {/* Leave Call */}
+                <motion.button 
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={handleLeaveCall} 
+                  className="p-3 md:p-4 rounded-full bg-gradient-to-r from-red-600 to-pink-700 hover:from-red-700 hover:to-pink-800 text-white transition-all ml-2 md:ml-4 shadow-2xl border-2 border-red-400 relative group"
+                >
+                  <PhoneOff size={22} className="md:w-7 md:h-7" />
+                  <div className="absolute -top-12 left-1/2 -translate-x-1/2 bg-black/90 text-white px-3 py-1 rounded-lg text-xs opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
+                    Leave Call
+                  </div>
+                </motion.button>
+              </div>
             </motion.div>
           )}
         </AnimatePresence>
       </div>
       
-      {/* Chat Panel - Always visible on desktop, toggle on mobile */}
+      {/* Chat Panel - Fully responsive and animated */}
       <AnimatePresence>
       {isChatVisible && (
         <>
-          {/* Mobile Overlay */}
+          {/* Mobile Overlay with fade */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
             onClick={() => setIsChatVisible(false)}
-            className="md:hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-40"
+            className="md:hidden fixed inset-0 bg-black/70 backdrop-blur-sm z-40"
           />
           
-          {/* Chat Panel */}
+          {/* Chat Panel - Smooth slide animation */}
           <motion.div
-            initial={{ x: '100%' }}
-            animate={{ x: 0 }}
-            exit={{ x: '100%' }}
-            transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-            className="w-full md:w-96 bg-black/95 md:bg-black/20 backdrop-blur-lg border-l border-white/10 flex flex-col fixed md:relative right-0 top-0 h-full z-50"
+            initial={{ x: '100%', opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            exit={{ x: '100%', opacity: 0 }}
+            transition={{ type: 'spring', damping: 30, stiffness: 300 }}
+            className="w-full md:w-96 lg:w-[420px] bg-transparent backdrop-blur-md border border-white/10 flex flex-col fixed md:fixed right-0 md:right-6 lg:right-8 top-0 md:top-6 lg:top-8 bottom-0 md:bottom-6 lg:bottom-8 h-full md:h-auto md:rounded-3xl z-50 shadow-2xl overflow-hidden"
           >
-            {/* Chat Header */}
-            <div className="p-3 md:p-4 border-b border-white/10 flex items-center gap-2 backdrop-blur-sm bg-gradient-to-r from-blue-500/10 to-purple-500/10">
-              {/* Close button on LEFT side - mobile only */}
-              <button 
+            {/* Chat Header - Animated gradient */}
+            <motion.div 
+              initial={{ y: -20, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ delay: 0.1 }}
+              className="p-4 md:p-5 border-b border-white/10 flex items-center gap-3 backdrop-blur-sm relative overflow-hidden md:rounded-t-3xl"
+            >
+              {/* Animated background gradient */}
+              <motion.div 
+                animate={{ 
+                  backgroundPosition: ['0% 50%', '100% 50%', '0% 50%']
+                }}
+                transition={{ 
+                  duration: 8,
+                  repeat: Infinity,
+                  ease: "linear"
+                }}
+                style={{
+                  backgroundSize: '200% 200%'
+                }}
+                className="absolute inset-0 bg-gradient-to-r from-pink-500/10 via-purple-500/10 to-sky-500/10"
+              />
+              
+              {/* Close button - mobile only with animation */}
+              <motion.button 
+                whileHover={{ scale: 1.1, rotate: 90 }}
+                whileTap={{ scale: 0.9 }}
                 onClick={() => setIsChatVisible(false)} 
-                className="md:hidden text-white/80 hover:text-white p-2 touch-manipulation hover:bg-white/10 rounded-lg transition-all"
+                className="md:hidden text-white/80 hover:text-white p-2 rounded-full hover:bg-white/20 transition-all relative z-10 backdrop-blur-sm"
               >
                 <X size={22} />
-              </button>
-              <h3 className="text-white text-base md:text-lg font-semibold flex items-center gap-2 drop-shadow-lg">
-                <MessageCircle size={18} className="md:w-5 md:h-5" />
-                Live Chat
-              </h3>
-            </div>
+              </motion.button>
+              
+              {/* Header content */}
+              <motion.div 
+                initial={{ scale: 0.8, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ delay: 0.2, type: 'spring', damping: 15 }}
+                className="flex items-center gap-2 md:gap-3 relative z-10"
+              >
+                <motion.div 
+                  animate={{ 
+                    rotate: [0, 10, -10, 0],
+                    scale: [1, 1.05, 1]
+                  }}
+                  transition={{ 
+                    duration: 3,
+                    repeat: Infinity,
+                    ease: "easeInOut"
+                  }}
+                  className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-gradient-to-br from-pink-500 via-purple-500 to-sky-500 flex items-center justify-center shadow-xl"
+                >
+                  <MessageCircle size={20} className="md:w-6 md:h-6 text-white" />
+                </motion.div>
+                <div>
+                  <h3 className="text-white text-base md:text-lg font-bold drop-shadow-lg bg-gradient-to-r from-pink-200 via-purple-200 to-sky-200 bg-clip-text text-transparent">
+                    Live Chat
+                  </h3>
+                  <motion.p 
+                    animate={{ opacity: [0.6, 1, 0.6] }}
+                    transition={{ duration: 2, repeat: Infinity }}
+                    className="text-white/60 text-xs"
+                  >
+                    {participants.length + 1} participant{participants.length !== 0 ? 's' : ''}
+                  </motion.p>
+                </div>
+              </motion.div>
+              
+              {/* Unread badge with animation */}
+              {unreadCount > 0 && (
+                <motion.div 
+                  initial={{ scale: 0, rotate: -180 }}
+                  animate={{ scale: 1, rotate: 0 }}
+                  exit={{ scale: 0, rotate: 180 }}
+                  whileHover={{ scale: 1.1 }}
+                  className="ml-auto bg-gradient-to-r from-red-500 to-pink-500 text-white text-xs rounded-full w-7 h-7 flex items-center justify-center font-bold shadow-xl relative z-10 border-2 border-white/30"
+                >
+                  <motion.span
+                    animate={{ scale: [1, 1.2, 1] }}
+                    transition={{ duration: 1, repeat: Infinity }}
+                  >
+                    {unreadCount}
+                  </motion.span>
+                </motion.div>
+              )}
+            </motion.div>
           
-          {/* Messages */}
-          <div className="flex-1 overflow-y-auto p-3 md:p-4 space-y-2 md:space-y-3 custom-scrollbar">
+          {/* Messages - Auto-scroll with animations */}
+          <div className="flex-1 overflow-y-auto overflow-x-hidden p-3 md:p-5 space-y-3 md:space-y-4 chat-scrollbar">
             {messages.length === 0 && (
-              <div className="text-center text-white/60 py-8">
-                <MessageCircle size={48} className="mx-auto mb-2 opacity-50" />
-                <p className="text-sm md:text-base">No messages yet</p>
-                <p className="text-xs md:text-sm">Say hi! 👋</p>
-              </div>
+              <motion.div 
+                initial={{ opacity: 0, scale: 0.8, y: 30 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                transition={{ delay: 0.3, type: 'spring', damping: 15 }}
+                className="text-center text-white/60 py-12 md:py-16"
+              >
+                <motion.div 
+                  animate={{ 
+                    scale: [1, 1.1, 1],
+                    rotate: [0, 5, -5, 0]
+                  }}
+                  transition={{ 
+                    duration: 3,
+                    repeat: Infinity,
+                    ease: "easeInOut"
+                  }}
+                  className="w-20 h-20 md:w-24 md:h-24 rounded-full bg-gradient-to-br from-pink-500/20 to-purple-500/20 flex items-center justify-center mx-auto mb-4 border-2 border-pink-400/30 shadow-xl"
+                >
+                  <MessageCircle size={40} className="md:w-12 md:h-12 text-pink-300/60" />
+                </motion.div>
+                <motion.p 
+                  animate={{ opacity: [0.6, 1, 0.6] }}
+                  transition={{ duration: 2, repeat: Infinity }}
+                  className="text-base md:text-lg font-semibold mb-2 bg-gradient-to-r from-pink-200 to-purple-200 bg-clip-text text-transparent"
+                >
+                  No messages yet
+                </motion.p>
+                <p className="text-xs md:text-sm text-white/40">Say hi! 👋</p>
+              </motion.div>
             )}
-            {messages.map((msg) => (
-              <div key={msg.id}>
-                {msg.type === 'system' ? (
-                  <div className="text-center text-white/80 text-xs md:text-sm py-2 bg-white/5 backdrop-blur-sm rounded border border-white/10">
-                    {msg.text}
-                  </div>
-                ) : (
-                  <div className={msg.userId === user?._id ? 'text-right' : 'text-left'}>
-                    <div className="text-xs text-white/60 mb-1">{msg.username}</div>
-                    <div className={`inline-block px-3 md:px-4 py-2 rounded-lg max-w-[75%] md:max-w-xs break-words text-sm md:text-base ${
-                      msg.userId === user?._id 
-                        ? 'bg-blue-500/30 backdrop-blur-md text-white border border-blue-400/30 shadow-lg' 
-                        : 'bg-white/10 backdrop-blur-md text-white border border-white/20 shadow-lg'
-                    }`}>
+            <AnimatePresence mode="popLayout">
+              {messages.map((msg: any, index: number) => (
+                <motion.div 
+                  key={msg.id}
+                  initial={{ opacity: 0, x: msg.userId === user?._id ? 30 : -30, scale: 0.9 }}
+                  animate={{ opacity: 1, x: 0, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.8 }}
+                  transition={{ 
+                    type: 'spring', 
+                    damping: 25,
+                    stiffness: 300,
+                    delay: index * 0.05
+                  }}
+                  layout
+                >
+                  {msg.type === 'system' ? (
+                    <motion.div 
+                      whileHover={{ scale: 1.02 }}
+                      className="text-center text-white/70 text-xs md:text-sm py-2 px-4 bg-white/5 backdrop-blur-sm rounded-full border border-white/10 shadow-lg"
+                    >
                       {msg.text}
+                    </motion.div>
+                  ) : (
+                    <div className={`flex ${msg.userId === user?._id ? 'justify-end' : 'justify-start'} mb-2`}>
+                      <div className={`flex flex-col ${msg.userId === user?._id ? 'items-end' : 'items-start'} max-w-[80%] md:max-w-[75%]`}>
+                        <motion.div 
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          className="text-xs text-white/50 mb-1 font-medium px-2"
+                        >
+                          {msg.username}
+                        </motion.div>
+                        <motion.div 
+                          whileHover={{ scale: 1.02, y: -2 }}
+                          className={`px-4 md:px-5 py-2.5 md:py-3 rounded-2xl md:rounded-3xl break-words text-sm md:text-base shadow-2xl transition-all ${
+                            msg.userId === user?._id 
+                              ? 'bg-gradient-to-r from-pink-600 via-purple-600 to-pink-600 text-white border border-pink-400/50' 
+                              : 'bg-white/15 backdrop-blur-md text-white border border-white/40'
+                          }`}
+                        >
+                          {msg.text}
+                        </motion.div>
+                        <motion.div 
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          transition={{ delay: 0.2 }}
+                          className="text-xs text-white/30 mt-1 px-2"
+                        >
+                          {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </motion.div>
+                      </div>
                     </div>
-                    <div className="text-xs text-white/40 mt-1">
-                      {new Date(msg.timestamp).toLocaleTimeString()}
-                    </div>
-                  </div>
-                )}
-              </div>
-            ))}
+                  )}
+                </motion.div>
+              ))}
+            </AnimatePresence>
           </div>
           
-          {/* Chat Input */}
-          <form onSubmit={handleSendMessage} className="p-3 md:p-4 border-t border-white/10">
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={chatInput}
-                onChange={(e) => setChatInput(e.target.value)}
-                placeholder="Type a message..."
-                className="flex-1 px-3 md:px-4 py-2 md:py-3 bg-white/5 backdrop-blur-md text-white placeholder-white/40 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400/50 border border-white/10 text-sm md:text-base"
-              />
-              <button
-                type="submit"
-                disabled={!chatInput.trim()}
-                className="px-3 md:px-6 py-2 md:py-3 bg-blue-500/80 backdrop-blur-sm text-white rounded-lg hover:bg-blue-600/80 disabled:opacity-30 disabled:cursor-not-allowed transition-all touch-manipulation active:scale-95 flex items-center gap-2 border border-blue-400/30"
-              >
-                <Send size={18} className="md:w-5 md:h-5" />
-              </button>
-            </div>
-          </form>
+          {/* Chat Input - Fixed at bottom with animation */}
+          <motion.div 
+            initial={{ y: 20, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            transition={{ delay: 0.2 }}
+            className="p-4 md:p-5 border-t border-white/10 bg-transparent backdrop-blur-sm relative md:rounded-b-3xl"
+          >
+            {/* Emoji Picker - Fast & Responsive */}
+            <AnimatePresence>
+              {showEmojiPicker && (
+                <>
+                  {/* Backdrop for mobile */}
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.15 }}
+                    onClick={() => setShowEmojiPicker(false)}
+                    className="md:hidden fixed inset-0 bg-black/50 backdrop-blur-sm z-[60]"
+                  />
+                  
+                  <motion.div
+                    initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                    transition={{ duration: 0.15, ease: 'easeOut' }}
+                    className="fixed md:absolute bottom-20 md:bottom-full left-1/2 md:left-5 -translate-x-1/2 md:translate-x-0 mb-0 md:mb-3 w-[95vw] max-w-sm md:max-w-md bg-black/95 backdrop-blur-2xl rounded-3xl p-4 shadow-2xl border-2 border-pink-400/40 z-[70] max-h-[70vh] md:max-h-[500px] overflow-hidden flex flex-col"
+                  >
+                    {/* Header */}
+                    <div className="flex items-center justify-between mb-3 pb-3 border-b border-white/20">
+                      <h4 className="text-white font-semibold text-sm md:text-base bg-gradient-to-r from-pink-200 to-purple-200 bg-clip-text text-transparent">
+                        Choose Emoji
+                      </h4>
+                      <motion.button
+                        whileHover={{ scale: 1.1, rotate: 90 }}
+                        whileTap={{ scale: 0.9 }}
+                        onClick={() => setShowEmojiPicker(false)}
+                        className="text-white/60 hover:text-white p-1.5 rounded-full hover:bg-white/10 transition-all"
+                      >
+                        <X size={18} />
+                      </motion.button>
+                    </div>
+
+                    {/* Emoji Grid - Scrollable */}
+                    <div className="overflow-y-auto flex-1 custom-scrollbar pr-1">
+                      <div className="grid grid-cols-8 sm:grid-cols-9 md:grid-cols-10 gap-1.5 md:gap-2">
+                        {['😊', '😂', '🥰', '😍', '🤗', '😘', '💕', '💖', '💝', '💗', '💓', '💞', '💘', '❤️', '🧡', '💛', '💚', '💙', '💜', '🖤', '🤍', '🤎', '❣️', '💋', '👋', '🤚', '✋', '🖐️', '👌', '🤌', '🤏', '✌️', '🤞', '🤟', '🤘', '🤙', '👍', '👎', '👏', '🙌', '🤝', '🙏', '✨', '💫', '⭐', '🌟', '💥', '🎉', '🎊', '🎈', '🎁', '🎀', '🌹', '🌸', '🌺', '🌻', '🌷', '🌼', '💐', '🦋', '🐝', '🐞', '🦄', '🌈', '☀️', '🌙', '⭐', '💎', '🔥', '💧', '🌊', '🍀', '🌿', '🍃'].map((emoji) => (
+                          <motion.button
+                            key={emoji}
+                            type="button"
+                            whileHover={{ scale: 1.2 }}
+                            whileTap={{ scale: 0.85 }}
+                            onClick={() => {
+                              setChatInput(prev => prev + emoji);
+                            }}
+                            className="text-xl sm:text-2xl md:text-2xl hover:bg-white/15 rounded-lg p-1.5 md:p-2 transition-all active:bg-white/20"
+                          >
+                            {emoji}
+                          </motion.button>
+                        ))}
+                      </div>
+                    </div>
+                  </motion.div>
+                </>
+              )}
+            </AnimatePresence>
+
+            <form onSubmit={handleSendMessage} className="w-full">
+              <div className="flex items-center gap-2">
+                {/* Emoji Button */}
+                <motion.button
+                  type="button"
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                  className="flex-shrink-0 w-11 h-11 md:w-12 md:h-12 bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 text-white rounded-2xl transition-all flex items-center justify-center border border-yellow-400/50 shadow-lg"
+                >
+                  <motion.div
+                    animate={{ rotate: showEmojiPicker ? 180 : 0 }}
+                    transition={{ type: 'spring', damping: 15 }}
+                  >
+                    <span className="text-xl">😊</span>
+                  </motion.div>
+                </motion.button>
+
+                <motion.input
+                  whileFocus={{ scale: 1.002 }}
+                  type="text"
+                  value={chatInput}
+                  onChange={(e) => setChatInput(e.target.value)}
+                  placeholder="Type a message..."
+                  className="flex-1 min-w-0 px-3 md:px-4 py-2.5 md:py-3 bg-white/10 backdrop-blur-md text-white placeholder-white/40 rounded-2xl focus:outline-none focus:ring-2 focus:ring-pink-400/50 border border-white/30 text-sm md:text-base transition-all shadow-lg hover:bg-white/15"
+                />
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  type="submit"
+                  disabled={!chatInput.trim()}
+                  className="flex-shrink-0 w-11 h-11 md:w-auto md:px-5 md:h-12 bg-gradient-to-r from-pink-600 via-purple-600 to-pink-600 hover:from-pink-700 hover:via-purple-700 hover:to-pink-700 text-white rounded-2xl disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2 border border-pink-400/50 shadow-lg font-semibold"
+                >
+                  <Send size={18} className="md:w-5 md:h-5" />
+                  <span className="hidden md:inline text-sm">Send</span>
+                </motion.button>
+              </div>
+            </form>
+          </motion.div>
         </motion.div>
         </>
       )}
