@@ -598,8 +598,13 @@ export default function RoomPage() {
   // Initialize
   useEffect(() => {
     if (loading) return // Wait for auth to load
-    if (!isAuthenticated || !user) {
-      router.push('/auth/guest')
+    
+    // Don't redirect if we have a valid token in storage (even if store hasn't rehydrated yet)
+    const storedAuth = localStorage.getItem('auth-storage')
+    const hasToken = storedAuth && JSON.parse(storedAuth)?.state?.token
+    
+    if (!isAuthenticated && !hasToken) {
+      router.push('/auth/login') // Changed from /auth/guest to /auth/login
       return
     }
     if (isInitialized) return
