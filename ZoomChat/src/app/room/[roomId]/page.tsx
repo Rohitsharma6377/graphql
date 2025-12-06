@@ -4,6 +4,7 @@ import { useParams, useRouter } from 'next/navigation'
 import { useEffect, useRef, useState, Fragment } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { useCallStore, useChatStore, useUIStore } from '@/stores'
+import { useAuthStore } from '@/stores/authStore'
 import { ablySignaling } from '@/lib/ably-signaling'
 import { Video, VideoOff, Mic, MicOff, PhoneOff, ScreenShare, MessageCircle, Send, X } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -22,8 +23,9 @@ export default function RoomPage() {
   const router = useRouter()
   const roomId = typeof params?.roomId === 'string' ? params.roomId : 'default'
   
-  // Auth from context
-  const { user, isAuthenticated, loading } = useAuth()
+  // Auth from Zustand store
+  const { user, token } = useAuthStore()
+  const isAuthenticated = !!user && !!token
   
   // Theme
   const { theme } = useTheme()
@@ -77,6 +79,14 @@ export default function RoomPage() {
   const [roomReady, setRoomReady] = useState(false)
   const [isChatVisible, setIsChatVisible] = useState(true) // Show chat by default
   const [showDebug, setShowDebug] = useState(false) // Debug panel
+  
+  // Check authentication first
+  useEffect(() => {
+    if (!user || !token) {
+      console.log('⚠️ No authentication found, redirecting to login...')
+      router.push('/auth/login')
+    }
+  }, [user, token, router])
   
   // Auto-hide controls on mobile
   useEffect(() => {
@@ -597,33 +607,34 @@ export default function RoomPage() {
   
   // Initialize
   useEffect(() => {
-    if (loading) return // Wait for auth to load
-    
-    // Don't redirect if we have a valid token in storage (even if store hasn't rehydrated yet)
-    const storedAuth = localStorage.getItem('auth-storage')
-    const hasToken = storedAuth && JSON.parse(storedAuth)?.state?.token
-    
-    if (!isAuthenticated && !hasToken) {
-      router.push('/auth/login') // Changed from /auth/guest to /auth/login
+    // Wait for user data to be available
+    if (!user || !token) {
+      console.log('⏳ Waiting for auth...', { user: !!user, token: !!token })
       return
     }
+    
     if (isInitialized) return
     
     const init = async () => {
       try {
         console.log('🎬 Initializing room...')
         
+        const userId = user._id || user.id || 'unknown'
+        const userName = user.name || 'Guest'
+        
+        console.log('👤 User info:', { userId, userName })
+        
         // Initialize Ably connection
-        await ablySignaling.init(roomId, user.id || user._id)
+        await ablySignaling.init(roomId, userId)
         
         // Setup listeners BEFORE joining
         setupAblyListeners()
         
         // Join the room via Ably
-        await ablySignaling.joinRoom(user.name)
+        await ablySignaling.joinRoom(userName)
         
         // Update local call state
-        await joinCall(roomId, user.id || user._id, user.name)
+        await joinCall(roomId, userId, userName)
         
         // Load chat history
         await loadMessages(roomId)
@@ -850,8 +861,9 @@ export default function RoomPage() {
         
         // Broadcast screen sharing state
         console.log('📡 Broadcasting screen sharing state...')
+        const userId = user._id || user.id
         await ablySignaling.sendMediaState(roomId, {
-          userId: user?.id || user?._id,
+          userId,
           isScreenSharing: true,
           isCameraOn,
           isMicOn
@@ -878,8 +890,9 @@ export default function RoomPage() {
     if (!chatInput.trim() || !user) return
     
     // Send via Ably signaling
+    const userId = user._id || user.id
     const message = {
-      userId: user.id || user._id,
+      userId,
       username: user.name,
       text: chatInput,
       timestamp: Date.now()
@@ -897,21 +910,16 @@ export default function RoomPage() {
     return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${sec.toString().padStart(2, '0')}`
   }
   
-  // Show loading while checking auth
-  if (loading) {
+  // Redirect if not authenticated
+  if (!user || !token) {
     return (
       <div className="flex items-center justify-center h-screen bg-gray-900">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-blue-500 mx-auto mb-4"></div>
+          <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-purple-500 mx-auto mb-4"></div>
           <p className="text-white text-xl">Loading...</p>
         </div>
       </div>
     )
-  }
-  
-  // Redirect if not authenticated
-  if (!isAuthenticated || !user) {
-    return null // useEffect will handle redirect
   }
   
   if (status === 'connecting') return (
