@@ -16,14 +16,14 @@ export default function SunsetBirds() {
   const [particles, setParticles] = useState<Particle[]>([])
 
   useEffect(() => {
-    const emojis = ['🕊️', '🦅', '🦜', '☁️', '⭐', '✨', '🌟', '🌙', '🌅', '🌄']
+    const emojis = ['🕊️', '🦅', '☁️', '🌅', '🌙']
     const newParticles: Particle[] = []
-    for (let i = 0; i < 35; i++) {
+    for (let i = 0; i < 5; i++) {
       newParticles.push({
         id: i,
-        startY: 10 + Math.random() * 60,
-        duration: 12 + Math.random() * 12,
-        delay: Math.random() * 10,
+        startY: 20 + Math.random() * 60,
+        duration: 12 + Math.random() * 10,
+        delay: Math.random() * 5,
         size: 25 + Math.random() * 20,
         emoji: emojis[Math.floor(Math.random() * emojis.length)],
       })
@@ -87,7 +87,7 @@ export default function SunsetBirds() {
       ))}
 
       {/* Twinkling Stars */}
-      {[...Array(20)].map((_, i) => (
+      {[...Array(3)].map((_, i) => (
         <motion.div
           key={`star-${i}`}
           className="absolute text-yellow-200"

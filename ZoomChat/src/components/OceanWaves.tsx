@@ -20,22 +20,14 @@ interface Particle {
   emoji: string
 }
 
-interface FloatingText {
-  id: number
-  text: string
-  left: number
-  delay: number
-}
-
 export default function OceanWaves() {
   const [bubbles, setBubbles] = useState<Bubble[]>([])
   const [particles, setParticles] = useState<Particle[]>([])
-  const [floatingTexts, setFloatingTexts] = useState<FloatingText[]>([])
 
   useEffect(() => {
     // Bubbles
     const newBubbles: Bubble[] = []
-    for (let i = 0; i < 25; i++) {
+    for (let i = 0; i < 4; i++) {
       newBubbles.push({
         id: i,
         left: Math.random() * 100,
@@ -45,10 +37,10 @@ export default function OceanWaves() {
     }
     setBubbles(newBubbles)
 
-    // Ocean creatures and elements with clouds+hearts
-    const emojis = ['🐠', '🐟', '🐡', '🦈', '🐬', '🐙', '🦑', '🐚', '⭐', '🌊', '💧', '💦', '☁️❤️', '☁️💙', '☁️💛']
+    // Ocean creatures
+    const emojis = ['🐠', '🐟', '🐡', '🐬', '🌊']
     const newParticles: Particle[] = []
-    for (let i = 0; i < 35; i++) {
+    for (let i = 0; i < 5; i++) {
       newParticles.push({
         id: i,
         left: Math.random() * 100,
@@ -60,49 +52,10 @@ export default function OceanWaves() {
       })
     }
     setParticles(newParticles)
-
-    // Ocean-themed floating texts with wave motion
-    const texts = ['Love You 🌊', 'Ocean Love', 'Deep Blue', 'Dive In', '💙 Love 💙', 'Blue Heart', 'Waves ❤️', 'Sea You']
-    const newTexts: FloatingText[] = []
-    for (let i = 0; i < 12; i++) {
-      newTexts.push({
-        id: i,
-        text: texts[Math.floor(Math.random() * texts.length)],
-        left: 10 + Math.random() * 80,
-        delay: i * 2.8,
-      })
-    }
-    setFloatingTexts(newTexts)
   }, [])
 
   return (
     <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
-      {/* Movie-style floating ocean texts with wave-like motion */}
-      {floatingTexts.map((item) => (
-        <motion.div
-          key={`text-${item.id}`}
-          className="absolute text-2xl md:text-3xl font-bold bg-gradient-to-r from-cyan-300 via-blue-400 to-cyan-300 bg-clip-text text-transparent drop-shadow-2xl whitespace-nowrap"
-          style={{
-            left: `${item.left}%`,
-            bottom: '-100px',
-          }}
-          animate={{
-            y: [0, -(window.innerHeight + 200)],
-            x: [0, Math.sin(item.id * 0.5) * 150, Math.cos(item.id * 0.3) * 120, 0],
-            opacity: [0, 1, 1, 1, 0],
-            scale: [0.8, 1.1, 1, 1, 0.8],
-          }}
-          transition={{
-            duration: 18,
-            delay: item.delay,
-            repeat: Infinity,
-            ease: 'easeInOut',
-          }}
-        >
-          {item.text}
-        </motion.div>
-      ))}
-
       {/* Swimming creatures */}
       {particles.map((particle) => (
         <motion.div

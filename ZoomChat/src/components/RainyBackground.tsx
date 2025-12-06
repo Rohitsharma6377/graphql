@@ -24,15 +24,15 @@ export default function RainyBackground() {
 
   useEffect(() => {
     // Rain-themed emojis
-    const emojis = ['🍃', '🍂', '🌸', '💧', '☂️', '🌧️', '⛈️', '🌂', '💦']
+    const emojis = ['🍃', '💧', '☂️', '🌧️', '💦']
     const newParticles: Particle[] = []
-    for (let i = 0; i < 30; i++) {
+    for (let i = 0; i < 5; i++) {
       newParticles.push({
         id: i,
         left: Math.random() * 100,
-        duration: 8 + Math.random() * 6,
-        delay: Math.random() * 5,
-        size: 20 + Math.random() * 20,
+        duration: 4 + Math.random() * 4,
+        delay: Math.random() * 3,
+        size: 20 + Math.random() * 15,
         emoji: emojis[Math.floor(Math.random() * emojis.length)],
         rotation: Math.random() * 360,
       })
