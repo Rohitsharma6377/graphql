@@ -3,59 +3,41 @@
 import { motion } from 'framer-motion'
 import { useEffect, useState } from 'react'
 
-interface RainDrop {
-  id: number
-  left: number
-  duration: number
-  delay: number
-}
-
-interface Leaf {
-  id: number
-  left: number
-  duration: number
-  delay: number
-  rotation: number
-  emoji: string
-}
-
 interface Lightning {
   id: number
   show: boolean
 }
 
+interface Particle {
+  id: number
+  left: number
+  duration: number
+  delay: number
+  size: number
+  emoji: string
+  rotation: number
+}
+
 export default function RainyBackground() {
-  const [rainDrops, setRainDrops] = useState<RainDrop[]>([])
-  const [leaves, setLeaves] = useState<Leaf[]>([])
   const [lightning, setLightning] = useState<Lightning>({ id: 0, show: false })
+  const [particles, setParticles] = useState<Particle[]>([])
 
   useEffect(() => {
-    // Create rain drops
-    const newRainDrops: RainDrop[] = []
-    for (let i = 0; i < 80; i++) {
-      newRainDrops.push({
-        id: i,
-        left: Math.random() * 100,
-        duration: 0.8 + Math.random() * 0.8,
-        delay: Math.random() * 3,
-      })
-    }
-    setRainDrops(newRainDrops)
-
-    // Create falling leaves
-    const leafEmojis = ['🍃', '🍂', '🌸', '🌺', '🌼', '🌷', '💧', '☂️']
-    const newLeaves: Leaf[] = []
+    // Rain-themed emojis
+    const emojis = ['🍃', '🍂', '🌸', '💧', '☂️', '🌧️', '⛈️', '🌂', '💦']
+    const newParticles: Particle[] = []
     for (let i = 0; i < 30; i++) {
-      newLeaves.push({
+      newParticles.push({
         id: i,
         left: Math.random() * 100,
-        duration: 10 + Math.random() * 5,
+        duration: 8 + Math.random() * 6,
         delay: Math.random() * 5,
+        size: 20 + Math.random() * 20,
+        emoji: emojis[Math.floor(Math.random() * emojis.length)],
         rotation: Math.random() * 360,
-        emoji: leafEmojis[Math.floor(Math.random() * leafEmojis.length)],
       })
     }
-    setLeaves(newLeaves)
+    setParticles(newParticles)
 
     // Thunder/Lightning effect
     const lightningInterval = setInterval(() => {
@@ -72,6 +54,59 @@ export default function RainyBackground() {
 
   return (
     <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
+      {/* Animated "Love You" Text */}
+      <motion.div
+        className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center"
+        animate={{
+          scale: [1, 1.05, 1],
+          opacity: [0.5, 0.8, 0.5],
+        }}
+        transition={{
+          duration: 3.5,
+          repeat: Infinity,
+          ease: 'easeInOut',
+        }}
+      >
+        <h1 className="text-6xl md:text-8xl lg:text-9xl font-bold bg-gradient-to-r from-blue-300 via-cyan-300 to-blue-300 bg-clip-text text-transparent drop-shadow-2xl">
+          Love You
+        </h1>
+        <motion.p
+          animate={{ opacity: [0.3, 0.7, 0.3] }}
+          transition={{ duration: 2, repeat: Infinity }}
+          className="text-2xl md:text-4xl mt-4 text-blue-200/60 drop-shadow-xl"
+        >
+          🌧️ Waiting for others...
+        </motion.p>
+      </motion.div>
+
+      {/* Floating rain elements */}
+      {particles.map((particle) => (
+        <motion.div
+          key={particle.id}
+          className="absolute"
+          style={{
+            left: `${particle.left}%`,
+            top: '-50px',
+            fontSize: `${particle.size}px`,
+          }}
+          animate={{
+            y: [0, window.innerHeight + 100],
+            x: [0, Math.sin(particle.id) * 120, Math.cos(particle.id) * 100],
+            rotate: [particle.rotation, particle.rotation + 720],
+            opacity: [0, 0.9, 0.9, 0],
+            scale: [0.5, 1.2, 1, 0.7],
+          }}
+          transition={{
+            duration: particle.duration,
+            delay: particle.delay,
+            repeat: Infinity,
+            ease: 'easeInOut',
+          }}
+        >
+          <div className="drop-shadow-xl">{particle.emoji}</div>
+        </motion.div>
+      ))}
+
       {/* Lightning Flash */}
       {lightning.show && (
         <>
@@ -96,75 +131,6 @@ export default function RainyBackground() {
           </motion.div>
         </>
       )}
-
-      {/* Rain drops */}
-      {rainDrops.map((drop) => (
-        <motion.div
-          key={`rain-${drop.id}`}
-          className="absolute w-0.5 h-16 bg-gradient-to-b from-blue-300/50 to-transparent"
-          style={{
-            left: `${drop.left}%`,
-            top: '-80px',
-          }}
-          animate={{
-            y: [0, window.innerHeight + 100],
-          }}
-          transition={{
-            duration: drop.duration,
-            delay: drop.delay,
-            repeat: Infinity,
-            ease: 'linear',
-          }}
-        />
-      ))}
-
-      {/* Falling leaves, flowers and rain elements */}
-      {leaves.map((leaf) => (
-        <motion.div
-          key={`leaf-${leaf.id}`}
-          className="absolute text-2xl opacity-70"
-          style={{
-            left: `${leaf.left}%`,
-            top: '-50px',
-          }}
-          animate={{
-            y: [0, window.innerHeight + 100],
-            x: [0, Math.sin(leaf.id) * 150, Math.cos(leaf.id) * 150],
-            rotate: [leaf.rotation, leaf.rotation + 720],
-            opacity: [0, 0.7, 0.7, 0],
-          }}
-          transition={{
-            duration: leaf.duration,
-            delay: leaf.delay,
-            repeat: Infinity,
-            ease: 'easeInOut',
-          }}
-        >
-          {leaf.emoji}
-        </motion.div>
-      ))}
-
-      {/* Dark Clouds */}
-      {[...Array(3)].map((_, i) => (
-        <motion.div
-          key={`cloud-${i}`}
-          className="absolute text-6xl opacity-30"
-          style={{
-            left: `${i * 35}%`,
-            top: `${5 + i * 3}%`,
-          }}
-          animate={{
-            x: [-100, window.innerWidth + 100],
-          }}
-          transition={{
-            duration: 40 + i * 10,
-            repeat: Infinity,
-            ease: 'linear',
-          }}
-        >
-          ☁️
-        </motion.div>
-      ))}
     </div>
   )
 }

@@ -3,102 +3,110 @@
 import { motion } from 'framer-motion'
 import { useEffect, useState } from 'react'
 
-interface Rose {
+interface Particle {
   id: number
   left: number
   duration: number
   delay: number
   size: number
   rotation: number
+  emoji: string
+}
+
+interface FloatingText {
+  id: number
+  text: string
+  left: number
+  delay: number
 }
 
 export default function RomanticRoses() {
-  const [roses, setRoses] = useState<Rose[]>([])
-  const [petals, setPetals] = useState<Rose[]>([])
+  const [particles, setParticles] = useState<Particle[]>([])
+  const [floatingTexts, setFloatingTexts] = useState<FloatingText[]>([])
 
   useEffect(() => {
-    // Falling roses
-    const newRoses: Rose[] = []
-    for (let i = 0; i < 12; i++) {
-      newRoses.push({
+    const emojis = ['🌹', '🌸', '🌺', '💐', '🌷', '🌼', '💕', '💖', '💝', '🦋', '✨', '☁️🌹', '☁️💕', '☁️❤️']
+    const newParticles: Particle[] = []
+    for (let i = 0; i < 45; i++) {
+      newParticles.push({
         id: i,
         left: Math.random() * 100,
-        duration: 8 + Math.random() * 4,
+        duration: 10 + Math.random() * 8,
         delay: Math.random() * 5,
-        size: 30 + Math.random() * 20,
+        size: 20 + Math.random() * 25,
         rotation: Math.random() * 360,
+        emoji: emojis[Math.floor(Math.random() * emojis.length)],
       })
     }
-    setRoses(newRoses)
+    setParticles(newParticles)
 
-    // Floating petals
-    const newPetals: Rose[] = []
-    for (let i = 0; i < 25; i++) {
-      newPetals.push({
-        id: i + 100,
-        left: Math.random() * 100,
-        duration: 10 + Math.random() * 5,
-        delay: Math.random() * 5,
-        size: 15 + Math.random() * 15,
-        rotation: Math.random() * 360,
+    // Romantic floating texts
+    const texts = ['Love You 🌹', 'My Love', 'Forever', 'Be Mine', '💕 Love 💕', 'Together', 'Always ❤️', 'You & Me']
+    const newTexts: FloatingText[] = []
+    for (let i = 0; i < 10; i++) {
+      newTexts.push({
+        id: i,
+        text: texts[Math.floor(Math.random() * texts.length)],
+        left: 15 + Math.random() * 70,
+        delay: i * 3.5,
       })
     }
-    setPetals(newPetals)
+    setFloatingTexts(newTexts)
   }, [])
 
   return (
     <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
-      {/* Falling Roses */}
-      {roses.map((rose) => (
+      {/* Movie-style floating romantic texts */}
+      {floatingTexts.map((item) => (
         <motion.div
-          key={`rose-${rose.id}`}
-          className="absolute"
+          key={`text-${item.id}`}
+          className="absolute text-2xl md:text-3xl font-bold bg-gradient-to-r from-rose-300 via-pink-400 to-rose-300 bg-clip-text text-transparent drop-shadow-2xl whitespace-nowrap"
           style={{
-            left: `${rose.left}%`,
-            top: '-80px',
-            fontSize: `${rose.size}px`,
+            left: `${item.left}%`,
+            bottom: '-100px',
           }}
           animate={{
-            y: [0, window.innerHeight + 100],
-            x: [0, Math.sin(rose.id) * 100, Math.cos(rose.id) * 80],
-            rotate: [rose.rotation, rose.rotation + 360],
-            opacity: [0, 1, 1, 0],
+            y: [0, -(window.innerHeight + 200)],
+            x: [0, Math.sin(item.id) * 120],
+            opacity: [0, 1, 1, 1, 0],
+            rotate: [0, 10, -10, 0],
           }}
           transition={{
-            duration: rose.duration,
-            delay: rose.delay,
+            duration: 16,
+            delay: item.delay,
             repeat: Infinity,
             ease: 'linear',
           }}
         >
-          🌹
+          {item.text}
         </motion.div>
       ))}
 
-      {/* Floating Rose Petals */}
-      {petals.map((petal) => (
+      {/* Floating rose petals and hearts overlay */}
+      {particles.map((particle) => (
         <motion.div
-          key={`petal-${petal.id}`}
-          className="absolute opacity-60"
+          key={particle.id}
+          className="absolute"
           style={{
-            left: `${petal.left}%`,
+            left: `${particle.left}%`,
             top: '-50px',
-            fontSize: `${petal.size}px`,
+            fontSize: `${particle.size}px`,
           }}
           animate={{
             y: [0, window.innerHeight + 100],
-            x: [0, Math.sin(petal.id) * 150, Math.cos(petal.id) * 120],
-            rotate: [petal.rotation, petal.rotation + 720],
-            opacity: [0, 0.7, 0.7, 0],
+            x: [0, Math.sin(particle.id) * 150, Math.cos(particle.id) * 100],
+            rotate: [particle.rotation, particle.rotation + 720],
+            opacity: [0, 1, 1, 0],
+            scale: [0.5, 1.3, 1, 0.7],
           }}
           transition={{
-            duration: petal.duration,
-            delay: petal.delay,
+            duration: particle.duration,
+            delay: particle.delay,
             repeat: Infinity,
             ease: 'easeInOut',
           }}
         >
-          🌸
+          <div className="drop-shadow-2xl">{particle.emoji}</div>
         </motion.div>
       ))}
     </div>
