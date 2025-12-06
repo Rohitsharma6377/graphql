@@ -663,7 +663,7 @@ export default function RoomPage() {
         leaveCall()
       }
     }
-  }, [user, roomId, isInitialized, loading, isAuthenticated])
+  }, [user, token, roomId, isInitialized])
   
   // Apply theme background
   useEffect(() => {
